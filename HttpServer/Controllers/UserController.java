@@ -1,5 +1,6 @@
 package org.nms.HttpServer.Controllers;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -19,12 +20,12 @@ public class UserController
                     if(users.isEmpty())
                     {
                         HttpResponse.sendFailure(ctx, 404, "No users found");
+                        return;
                     }
 
                     // User Found
                     HttpResponse.sendSuccess(ctx, 200, "Users found", users);
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                });
     }
 
     public static void getUserById(RoutingContext ctx)
@@ -58,9 +59,10 @@ public class UserController
                     // User already exists
                     if (user != null && !user.isEmpty()) {
                         HttpResponse.sendFailure(ctx, 409, "User already exists");
+                        return Future.failedFuture(new Exception("User Already Exist"));
                     }
 
-                    return null;
+                    return Future.succeededFuture();
                 })
                 .compose(v ->
 

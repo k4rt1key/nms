@@ -1,7 +1,12 @@
 package org.nms.HttpServer.Middlewares.Validators;
 
 import io.vertx.ext.web.RoutingContext;
+import org.nms.HttpServer.Utility.HttpResponse;
 import org.nms.HttpServer.Utility.IpUtility;
+
+import java.sql.Array;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ProvisionRequestValidator
 {
@@ -99,7 +104,7 @@ public class ProvisionRequestValidator
             return;
         }
 
-        var requiredFields = new String[]{"add_metrics", "remove_metrics"};
+        var requiredFields = new String[]{"metrics"};
 
         var isAllMissing = true;
 
@@ -117,39 +122,37 @@ public class ProvisionRequestValidator
             return;
         }
 
-        var add_metrics = body.getJsonArray("add_metrics");
+        var metrics = body.getJsonArray("metrics");
 
-        if(add_metrics != null && !add_metrics.isEmpty())
+        if(metrics != null && !metrics.isEmpty())
         {
-            for(var metric : add_metrics)
+            for(var i = 0; i < metrics.size(); i++)
             {
-                try
+                var type = metrics.getJsonObject(i).getString("name");
+
+                var MetricType = new ArrayList<String>(List.of("CPU", "MEMORY", "DISK", "PROCCESS", "SYSINFO", "PING", "NETWORK"));
+                if(!MetricType.contains(type))
                 {
-                    Integer.parseInt(metric.toString());
-                }
-                catch (NumberFormatException e)
-                {
-                    ctx.response().setStatusCode(400).end("Invalid metric ID: " + metric);
+                    HttpResponse.sendFailure(ctx, 400,"Invalid Metric Type " + type);
                     return;
                 }
-            }
-        }
 
-        var remove_metrics = body.getJsonArray("remove_metrics");
+                var interval = metrics.getJsonObject(i).getInteger("polling_interval");
 
-        if(remove_metrics != null && !remove_metrics.isEmpty())
-        {
-            for(var metric : remove_metrics)
-            {
-                try
+                var enable = metrics.getJsonObject(i).getBoolean("enable");
+
+                if(type == null)
                 {
-                    Integer.parseInt(metric.toString());
-                }
-                catch (NumberFormatException e)
-                {
-                    ctx.response().setStatusCode(400).end("Invalid metric ID: " + metric);
+                    HttpResponse.sendFailure(ctx, 400,"Provide Valid Metric Type");
                     return;
                 }
+
+                if( ( (interval == null || interval <= 10 ) & enable == null ) )
+                {
+                    HttpResponse.sendFailure(ctx, 400,"Provide interval ( Multiply of 10 ) or enable flag for given type");
+                    return;
+                }
+
             }
         }
 

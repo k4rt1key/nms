@@ -2,14 +2,17 @@ package org.nms;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import org.nms.Database.Services.*;
 import org.nms.HttpServer.Server;
+import org.nms.Scheduler.Scheduler;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class App
 {
-    public static Vertx vertx = Vertx.vertx();
+    public static Vertx vertx = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(300).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
 
     public static final UserService userService = UserService.getInstance();
 
@@ -39,27 +42,32 @@ public class App
 
     public static void main( String[] args )
     {
-        Future.join(
-                List.of(
-                       createUserSchemaFuture,
-                        createCredentialSchemaFuture,
-                        createDiscoverySchemaFuture,
-                        createProvisionSchemaFuture,
-                        createMetricGroupSchemaFuture,
-                        createPolledDataSchemaFuture
-                )
-        );
 
-        vertx.deployVerticle(new Server(), httpResult ->
-        {
-            if (httpResult.succeeded())
-            {
-                ConsoleLogger.info("Success Deploying HttpVerticle On Thread [ " + Thread.currentThread().getName() + " ] ID [ " + httpResult.result() + " ]");
-            }
-            else
-            {
-                ConsoleLogger.error("Failure Deploying HTTP Verticle, Cause [ " + httpResult.cause().getMessage() + " ]");
-            }
+        Scheduler scheduler = new Scheduler(vertx, 10);
+
+        Future.join(List.of(
+                createUserSchemaFuture,
+                createCredentialSchemaFuture,
+                createDiscoverySchemaFuture,
+                createProvisionSchemaFuture,
+                createMetricGroupSchemaFuture,
+                createPolledDataSchemaFuture
+        )).onSuccess(v -> {
+
+            scheduler.start();
+
+            vertx.deployVerticle(new Server(), httpResult -> {
+                if (httpResult.succeeded()) {
+                    ConsoleLogger.info("Success Deploying HttpVerticle On Thread [ " + Thread.currentThread().getName() + " ] ID [ " + httpResult.result() + " ]");
+                } else {
+                    scheduler.stop();
+                    ConsoleLogger.error("Failure Deploying HTTP Verticle, Cause [ " + httpResult.cause().getMessage() + " ]");
+                }
+            });
+        }).onFailure(err -> {
+            ConsoleLogger.error("Schema creation failed: " + err.getMessage());
+            scheduler.stop();
+            err.printStackTrace(); // Log stack trace too for full info
         });
 
     }

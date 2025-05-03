@@ -57,11 +57,13 @@ public class UserRequestValidator
         if(body.getString("email") != null && !body.getString("email").matches(Utility.EMAIL_REGEX))
         {
             HttpResponse.sendFailure(ctx, 400,"Email is not valid");
+            return;
         }
 
         if(body.getString("username").length() < 3 || body.getString("username").length() > 50)
         {
             HttpResponse.sendFailure(ctx, 400,"Username must be between 3 and 50 characters");
+            return;
         }
 
         ctx.next();

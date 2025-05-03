@@ -1,6 +1,8 @@
 package org.nms.Cache;
 
 import io.vertx.core.json.JsonObject;
+import org.nms.ConsoleLogger;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -12,6 +14,7 @@ public class MetricGroupCacheStore
 
     public static void setCachedMetricGroup(Integer key, io.vertx.core.json.JsonObject value)
     {
+        ConsoleLogger.debug("Inserting " + key + "Value : " + value);
         cachedMetricGroups.put(key, value);
     }
 
@@ -35,7 +38,7 @@ public class MetricGroupCacheStore
         List<JsonObject> timedOutMetricGroups = new ArrayList<>();
 
         cachedMetricGroups.forEach((key, value) -> {
-            if (value.getInteger("interval") <= 0) {
+            if (value.getInteger("polling_interval") <= 0) {
                 cachedMetricGroups.put(key, referencedMetricGroups.get(key));
                 timedOutMetricGroups.add(value);
             }
@@ -46,6 +49,6 @@ public class MetricGroupCacheStore
 
     public static void decrementMetricGroupInterval(int interval)
     {
-        cachedMetricGroups.replaceAll((k, v) -> v.put("interval", v.getInteger("interval") - interval));
+        cachedMetricGroups.replaceAll((k, v) -> v.put("polling_interval", v.getInteger("polling_interval") - interval));
     }
 }

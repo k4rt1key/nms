@@ -63,7 +63,7 @@ public class MetricGroupService implements BaseDatabaseService {
     public Future<JsonArray> update(JsonArray params) {
         ConsoleLogger.debug("MetricGroupServiceImpl => update => " + params + " => Running on " + Thread.currentThread().getName());
         return PostgresQuery
-                .execute(MetricGroupsQueries.UPDATE_METRIC_GROUP_INTERVAL_QUERY, params)
+                .execute(MetricGroupsQueries.UPDATE_METRIC_GROUP_QUERY, params)
                                 .map(PostgresQuery::toJsonArray);
     }
 

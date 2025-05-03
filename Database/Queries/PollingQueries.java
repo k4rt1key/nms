@@ -17,7 +17,7 @@ public class PollingQueries {
     public static final String CREATE_POLLING_RESULTS_TABLE =
             "CREATE TABLE IF NOT EXISTS polling_results (" +
                     "    id SERIAL PRIMARY KEY," +
-                    "Employerprovision_profile_id INTEGER REFERENCES provision_profiles(id) ON DELETE CASCADE," +
+                    "    provision_profile_id INTEGER REFERENCES provision_profiles(id) ON DELETE CASCADE," +
                     "    name metric_group_name NOT NULL," +
                     "    value JSONB NOT NULL," +
                     "    time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP" +

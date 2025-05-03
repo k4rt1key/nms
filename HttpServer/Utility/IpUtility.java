@@ -2,6 +2,7 @@ package org.nms.HttpServer.Utility;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.nms.ConsoleLogger;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -10,6 +11,7 @@ import java.net.UnknownHostException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class IpUtility
 {
@@ -246,6 +248,7 @@ public class IpUtility
      */
     public static JsonArray pingIps(JsonArray ipArray)
     {
+        ConsoleLogger.info("Recieved Pinging Request for " + ipArray);
         JsonArray results = new JsonArray();
 
         if (ipArray == null || ipArray.isEmpty())
@@ -334,6 +337,8 @@ public class IpUtility
     {
         JsonObject result = new JsonObject().put("ip", ip).put("port", port);
 
+        ConsoleLogger.info("Recieved Pinging Request for " + ip + "Port " + port);
+
         try
         {
             // Run the `nc` command to check if the port is open
@@ -367,7 +372,7 @@ public class IpUtility
             result.put("success", success);
 
             // Wait for the process to finish
-            process.waitFor();
+            process.waitFor(5000, TimeUnit.MILLISECONDS);
 
         }
         catch (Exception e)
@@ -376,6 +381,7 @@ public class IpUtility
             result.put("success", false);
         }
 
+        ConsoleLogger.info("Port check done with result " + result);
         return result;
     }
 

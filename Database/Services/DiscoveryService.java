@@ -27,20 +27,21 @@ public class DiscoveryService implements BaseDatabaseService
     }
 
     @Override
-    public  Future<Void> createSchema()
-    {
-        return PostgresQuery
-                .execute(DiscoveryQueries.CREATE_IP_TYPE)
-                .compose(v -> PostgresQuery
-                        .execute(DiscoveryQueries.CREATE_DISCOVERY_PROFILES_TABLE))
-                .compose(v -> PostgresQuery
-                        .execute(DiscoveryCredentialsQueries.CREATE_DISCOVERY_CREDENTIALS_TABLE))
-                .compose(v -> PostgresQuery
-                        .execute(DiscoveryResultsQueries.CREATE_DISCOVERY_RESULT_STATUS))
-                .compose(v -> PostgresQuery
-                        .execute(DiscoveryResultsQueries.CREATE_DISCOVERY_RESULTS_TABLE))
+    public Future<Void> createSchema() {
+        ConsoleLogger.debug("Discovery Schema started");
+        return PostgresQuery.execute(DiscoveryQueries.CREATE_IP_TYPE)
+                .onFailure(err -> ConsoleLogger.error("Failed CREATE_IP_TYPE: " + err.getMessage()))
+                .compose(v -> PostgresQuery.execute(DiscoveryResultsQueries.CREATE_DISCOVERY_RESULT_STATUS)
+                        .onFailure(err -> ConsoleLogger.error("Failed CREATE_DISCOVERY_RESULT_STATUS: " + err.getMessage())))
+                .compose(v -> PostgresQuery.execute(DiscoveryQueries.CREATE_DISCOVERY_STATUS)
+                        .onFailure(err -> ConsoleLogger.error("Failed CREATE_DISCOVERY_RESULT_STATUS: " + err.getMessage())))
+                .compose(v -> PostgresQuery.execute(DiscoveryQueries.CREATE_DISCOVERY_PROFILES_TABLE)
+                        .onFailure(err -> ConsoleLogger.error("Failed CREATE_DISCOVERY_PROFILES_TABLE: " + err.getMessage())))
+                .compose(v -> PostgresQuery.execute(DiscoveryCredentialsQueries.CREATE_DISCOVERY_CREDENTIALS_TABLE)
+                        .onFailure(err -> ConsoleLogger.error("Failed CREATE_DISCOVERY_CREDENTIALS_TABLE: " + err.getMessage())))
+                .compose(v -> PostgresQuery.execute(DiscoveryResultsQueries.CREATE_DISCOVERY_RESULTS_TABLE)
+                        .onFailure(err -> ConsoleLogger.error("Failed CREATE_DISCOVERY_RESULTS_TABLE: " + err.getMessage())))
                 .mapEmpty();
-
     }
 
     @Override

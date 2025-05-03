@@ -26,8 +26,6 @@ public class CredentialRouter
          * GET  /api/v1/credentials
          */
         router.get("/")
-                .handler(JWTAuthHandler.create(JwtConfig.jwtAuth))
-//                .handler(AuthorizationHandler::isUser)
                 .handler(CredentialController::getAllCredentials);
 
         /*

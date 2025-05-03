@@ -25,6 +25,7 @@ public class UserService implements BaseDatabaseService
     @Override
     public Future<Void> createSchema()
     {
+        ConsoleLogger.debug("User Schema created");
         return PostgresQuery
                 .execute(UserQueries.CREATE_USERS_TABLE)
                 .mapEmpty();

@@ -11,6 +11,7 @@ import org.nms.App;
 import org.nms.ConsoleLogger;
 import org.nms.HttpServer.Utility.HttpResponse;
 import org.nms.HttpServer.Utility.IpUtility;
+import org.nms.PluginManager.PluginManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -279,7 +280,8 @@ public class DiscoveryController
     }
 
     // Helper method to return updated discovery
-    private static void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId) {
+    private static void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId)
+    {
         App.discoveryService
                 .getWithCredentialsById(new JsonArray().add(discoveryId))
                 .onSuccess(updatedDiscovery -> {
@@ -325,7 +327,13 @@ public class DiscoveryController
                         return Future.failedFuture(new Exception("Discovery not found"));
                     }
 
-                    if(discoveryWithCredentials.getJsonObject(0).getString("status").equals("COMPLETE"))
+                    // Check if Discovery Status is PENDING
+                    if(discoveryWithCredentials.getJsonObject(0).getString("status").equals("COMPLETED"))
+                    {
+                        return Future.failedFuture(new Exception("Discovery Already Run"));
+                    }
+
+                    if(discoveryWithCredentials.getJsonObject(0).getString("status").equals("COMPLETED"))
                     {
                         // Discovery is already complete
                         HttpResponse.sendFailure(ctx, 400, "Discovery is already complete");
@@ -370,10 +378,12 @@ public class DiscoveryController
                                         var message = failedIps.getJsonObject(i).getString("message");
                                         ipsToAdd.add(Tuple.of(id, ip, null, message, "FAIL"));
                                     }
-                                }
 
-                                return App.discoveryService.saveResults(ipsToAdd)
-                                        .compose(v -> Future.succeededFuture(passedIps));
+                                    return App.discoveryService.saveResults(ipsToAdd)
+                                            .compose(v -> Future.succeededFuture(passedIps));
+                                } else {
+                                    return Future.succeededFuture(passedIps);
+                                }
                             })
                             .compose(passedIps -> {
                                 // Step 2.2: Port Check - Direct implementation instead of eventbus
@@ -384,12 +394,10 @@ public class DiscoveryController
                                     portCheckFutures.add(
                                             executeBlockingWithRetry(vertx -> IpUtility.checkPort(ip, port))
                                                     .otherwiseEmpty()
-                                                    .recover(err -> {
-                                                        return Future.succeededFuture(new JsonObject()
-                                                                .put("ip", ip)
-                                                                .put("message", err.getMessage())
-                                                                .put("success", false));
-                                                    })
+                                                    .recover(err -> Future.succeededFuture(new JsonObject()
+                                                            .put("ip", ip)
+                                                            .put("message", err.getMessage())
+                                                            .put("success", false)))
                                     );
                                 }
 
@@ -429,45 +437,85 @@ public class DiscoveryController
                                         var message = failedPortIps.getJsonObject(i).getString("message");
                                         portCheckIpsToAdd.add(Tuple.of(id, ip, null, message, "FAIL"));
                                     }
-                                }
 
-                                return App.discoveryService.saveResults(portCheckIpsToAdd)
-                                        .compose(v -> Future.succeededFuture(passedPortIps));
+                                    return App.discoveryService.saveResults(portCheckIpsToAdd)
+                                            .compose(v -> Future.succeededFuture(passedPortIps));
+                                } else {
+                                    return Future.succeededFuture(passedPortIps);
+                                }
                             })
                             .compose(passedPortIps -> {
+                                ConsoleLogger.info("Stage 3 reached");
                                 // Step 3: Credentials Check
-                                // Note: This part is incomplete in the original code
-                                // Here we'll just simulate the behavior
 
-                                var credentialCheckPassedIps = new JsonArray();
-                                var credentialCheckFailedIps = passedPortIps;
-
-                                var ipsToAddAfterCredentialFailure = new ArrayList<Tuple>();
-
-                                for (var i = 0; i < credentialCheckFailedIps.size(); i++) {
-                                    var ip = credentialCheckFailedIps.getString(i);
-                                    var message = "Credential check failed";
-                                    ipsToAddAfterCredentialFailure.add(Tuple.of(id, ip, null, message, "FAIL"));
+                                // Get Ips
+                                var ipsToCheckForCredentials = new JsonArray();
+                                for(var i = 0; i < passedPortIps.size(); i++)
+                                {
+                                    ipsToCheckForCredentials.add(passedPortIps.getString(i));
                                 }
 
-                                return App.discoveryService.saveResults(ipsToAddAfterCredentialFailure)
-                                        .compose(v -> Future.succeededFuture(credentialCheckPassedIps));
-                            })
-                            .compose(credentialCheckPassedIps -> {
-                                // Step 4: Add Successful IPs to discovery result
-                                var ipsToAddAfterSuccess = new ArrayList<Tuple>();
+                                // Get Credentials
+                                var credentialsToCheck = discoveryWithCredentials.getJsonObject(0).getJsonArray("credentials");
 
-                                for (var i = 0; i < credentialCheckPassedIps.size(); i++) {
-                                    var ip = credentialCheckPassedIps.getString(i);
-                                    var message = "Credential check passed";
-                                    ipsToAddAfterSuccess.add(Tuple.of(id, ip, null, message, "SUCCESS"));
-                                }
+                                return PluginManager
+                                        .runDiscovery(id, ipsToCheckForCredentials, port, credentialsToCheck)
+                                        .compose((credentialCheckResArr -> {
+                                            var credentialCheckPassedResult = new JsonArray();
+                                            var credentialCheckFailedResult = new JsonArray();
 
-                                return App.discoveryService.saveResults(ipsToAddAfterSuccess);
+                                            ConsoleLogger.debug("BHAI " + credentialCheckResArr);
+                                            for(var i = 0; i < credentialCheckResArr.size(); i++)
+                                            {
+                                                var status = credentialCheckResArr.getJsonObject(i).getBoolean("success");
+
+                                                if(status)
+                                                {
+                                                    credentialCheckPassedResult.add(credentialCheckResArr.getJsonObject(i));
+                                                }
+                                                else
+                                                {
+                                                    credentialCheckFailedResult.add(credentialCheckResArr.getJsonObject(i));
+                                                }
+                                            }
+
+                                            // Handle failed credential checks
+                                            var ipsToAddAfterCredentialFailure = new ArrayList<Tuple>();
+                                            if (!credentialCheckFailedResult.isEmpty()) {
+                                                for (var i = 0; i < credentialCheckFailedResult.size(); i++) {
+                                                    var ip = credentialCheckFailedResult.getJsonObject(i).getString("ip");
+                                                    var message = credentialCheckFailedResult.getJsonObject(i).getString("message");
+                                                    ipsToAddAfterCredentialFailure.add(Tuple.of(id, ip, null, message, "FAIL"));
+                                                }
+                                            }
+
+                                            // Handle successful credential checks
+                                            var ipsToAddAfterCredentialSuccess = new ArrayList<Tuple>();
+                                            if (!credentialCheckPassedResult.isEmpty()) {
+                                                for (var i = 0; i < credentialCheckPassedResult.size(); i++) {
+                                                    var ip = credentialCheckPassedResult.getJsonObject(i).getString("ip");
+                                                    var message = credentialCheckPassedResult.getJsonObject(i).getString("message");
+                                                    var credential = credentialCheckPassedResult.getJsonObject(i).getJsonObject("credential").getInteger("id");
+
+                                                    ipsToAddAfterCredentialSuccess.add(Tuple.of(id, ip, credential, message, "COMPLETED"));
+                                                }
+                                            }
+
+                                            // Handle empty lists to avoid batch query errors
+                                            Future<JsonArray> failureFuture = ipsToAddAfterCredentialFailure.isEmpty()
+                                                    ? Future.succeededFuture(new JsonArray())
+                                                    : App.discoveryService.saveResults(ipsToAddAfterCredentialFailure);
+
+                                            Future<JsonArray> successFuture = ipsToAddAfterCredentialSuccess.isEmpty()
+                                                    ? Future.succeededFuture(new JsonArray())
+                                                    : App.discoveryService.saveResults(ipsToAddAfterCredentialSuccess);
+
+                                            return Future.join(failureFuture, successFuture);
+                                        }));
                             })
                             .compose(v -> {
                                 // Step 5: Get complete discovery with credentials
-                                return App.discoveryService.updateStatus(new JsonArray().add(id).add("COMPLETE"));
+                                return App.discoveryService.updateStatus(new JsonArray().add(id).add("COMPLETED"));
                             })
                             .compose(v -> App.discoveryService.getWithResultsById(new JsonArray().add(id))
                                     .onSuccess(discoveryWithCredentialsAfterCheck -> HttpResponse.sendSuccess(ctx, 200, "Discovery run successfully", discoveryWithCredentialsAfterCheck))

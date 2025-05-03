@@ -23,6 +23,7 @@ public class CredentialService implements BaseDatabaseService
 
     public Future<Void> createSchema()
     {
+        ConsoleLogger.debug("Credential Schema Created");
         return PostgresQuery
                 .execute(CredentialQueries.CREATE_CREDENTIAL_TYPE)
                 .compose(v -> PostgresQuery.execute(CredentialQueries.CREATE_CREDENTIAL_PROFILES_TABLE))

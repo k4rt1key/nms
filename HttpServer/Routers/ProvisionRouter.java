@@ -1,8 +1,10 @@
 package org.nms.HttpServer.Routers;
 
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.handler.JWTAuthHandler;
 import org.nms.App;
 import org.nms.HttpServer.Controllers.ProvisionController;
+import org.nms.HttpServer.JwtConfig;
 import org.nms.HttpServer.Middlewares.Validators.ProvisionRequestValidator;
 
 /**
@@ -24,6 +26,7 @@ public class ProvisionRouter
          * GET  /api/v1/provisions
          */
         router.get("/")
+                .handler(JWTAuthHandler.create(JwtConfig.jwtAuth))
                 .handler(ProvisionController::getAllProvisions);
 
         /*

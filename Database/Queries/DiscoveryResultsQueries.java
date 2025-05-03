@@ -55,6 +55,7 @@ public class DiscoveryResultsQueries {
                     "    message," +
                     "    status" +
                     ") VALUES ($1, $2, $3, $4, $5)" +
+                    "ON CONFLICT (discovery_profile_id, ip) DO NOTHING" +
                     " RETURNING *;";
 
 

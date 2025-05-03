@@ -3,9 +3,12 @@ package org.nms.Database.Services;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
+import io.vertx.sqlclient.Tuple;
 import org.nms.ConsoleLogger;
 import org.nms.Database.Queries.PollingQueries;
 import org.nms.HttpServer.Utility.PostgresQuery;
+
+import java.util.List;
 
 public class PolledDataService implements BaseDatabaseService {
 
@@ -45,6 +48,13 @@ public class PolledDataService implements BaseDatabaseService {
         return PostgresQuery
                 .execute(PollingQueries.CREATE_POLLING_RESULTS_IN_BATCH_QUERY)
                                 .map(PostgresQuery::toJsonArray);
+    }
+
+    public Future<JsonArray> save(List<Tuple> params) {
+        ConsoleLogger.debug("PolledDataServiceImpl => save => " + params + " => Running on " + Thread.currentThread().getName());
+        return PostgresQuery
+                .execute(PollingQueries.CREATE_POLLING_RESULTS_IN_BATCH_QUERY)
+                .map(PostgresQuery::toJsonArray);
     }
 
     @Override

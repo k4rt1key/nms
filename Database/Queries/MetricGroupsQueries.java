@@ -28,10 +28,11 @@ public class MetricGroupsQueries {
      */
     public static final String CREATE_METRIC_GROUP_TABLE =
             "CREATE TABLE IF NOT EXISTS metric_groups (" +
+                    "    id SERIAL PRIMARY KEY, " +
                     "    provision_profile_id INTEGER REFERENCES provision_profiles(id) ON DELETE CASCADE," +
                     "    name metric_group_name NOT NULL," +
                     "    polling_interval INTEGER NOT NULL," +
-                    "    PRIMARY KEY (provision_profile_id, name)" +
+                    "    UNIQUE (provision_profile_id, name)" +
                     ");";
 
     /**
@@ -93,11 +94,13 @@ public class MetricGroupsQueries {
      * @param $1 Provision profile ID
      * @param $2 New polling interval
      * @param $3 Metric group's name
+     * @param $4 Enable
      * @return The updated metric_group
      */
-    public static final String UPDATE_METRIC_GROUP_INTERVAL_QUERY =
+    public static final String UPDATE_METRIC_GROUP_QUERY =
             "UPDATE metric_groups" +
-                    " SET polling_interval = $2" +
+                    " SET polling_interval = COALESCE($2, polling_interval) "+
+//                    " SET enable = COALESCE($4, enable)" +
                     " WHERE provision_profile_id = $1 AND name = $3 AND EXISTS (" +
                     "     SELECT 1 FROM provision_profiles p" +
                     "     WHERE p.id = metric_groups.provision_profile_id" +

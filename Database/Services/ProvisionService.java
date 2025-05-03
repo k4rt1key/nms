@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import org.nms.ConsoleLogger;
+import org.nms.Database.Queries.MetricGroupsQueries;
 import org.nms.Database.Queries.ProvisionQueries;
 import org.nms.HttpServer.Utility.PostgresQuery;
 
@@ -31,7 +32,7 @@ public class ProvisionService implements BaseDatabaseService {
     public Future<JsonArray> get(JsonArray params) {
         ConsoleLogger.debug("ProvisionServiceImpl => get => " + params + " => Running on " + Thread.currentThread().getName());
         return PostgresQuery
-                .execute(ProvisionQueries.GET_PROVISION_BY_ID_QUERY)
+                .execute(ProvisionQueries.GET_PROVISION_BY_ID_QUERY, params)
                                 .map(PostgresQuery::toJsonArray);
     }
 
@@ -53,9 +54,10 @@ public class ProvisionService implements BaseDatabaseService {
 
     @Override
     public Future<JsonArray> update(JsonArray params) {
-        ConsoleLogger.warn("ProvisionServiceImpl => Update method not implemented" + " => Running on " + Thread.currentThread().getName());
-
-        return null;
+        ConsoleLogger.debug("ProvisionServiceImpl => update => " + params + " => Running on " + Thread.currentThread().getName());
+        return PostgresQuery
+                .execute(MetricGroupsQueries.UPDATE_METRIC_GROUP_QUERY, params)
+                .map(PostgresQuery::toJsonArray);
     }
 
     @Override
