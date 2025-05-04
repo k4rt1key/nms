@@ -6,12 +6,14 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
+import org.nms.App;
 import org.nms.Cache.MetricGroupCacheStore;
 import org.nms.ConsoleLogger;
 import org.nms.Database.Services.PolledDataService;
 import org.nms.PluginManager.PluginManager;
 
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -37,7 +39,50 @@ public class Scheduler {
      */
     public void start() {
         ConsoleLogger.debug("Starting scheduler with interval: " + timerIntervalMs + "ms");
-        this.timerId = vertx.setPeriodic(timerIntervalMs, id -> processMetricGroups());
+
+        App.provisionService
+                .getAll()
+                .onSuccess(provisionedIps -> {
+
+                    if(provisionedIps.isEmpty()){
+                        ConsoleLogger.info("There is no provisions to cache");
+                    }
+
+                    ConsoleLogger.debug(provisionedIps.encode());
+                    // INSERT Into Cache
+
+                    for(var i = 0; i < provisionedIps.size(); i++) {
+                        var provisionedObject = provisionedIps.getJsonObject(i);
+
+                        ConsoleLogger.debug("Inside DEBUG");
+
+                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
+                            // Create a NEW JsonObject for each metric group
+                            var metricGroupValue = new JsonObject()
+                                    .put("provision_profile_id", provisionedObject.getInteger("id"))
+                                    .put("port", Integer.parseInt(provisionedObject.getString("port")))
+                                    // Make a copy of the credential object to avoid reference issues
+                                    .put("credential", provisionedObject.getJsonObject("credential").copy())
+                                    .put("ip", provisionedObject.getString("ip"))
+                                    .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
+                                    .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
+
+                            var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
+                            ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
+                                    provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
+
+                            MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
+                            MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
+                        }
+                    }
+                    ConsoleLogger.info("Cache populated " + provisionedIps.size());
+
+                    this.timerId = vertx.setPeriodic(timerIntervalMs, id -> processMetricGroups());
+                })
+                .onFailure(err -> {
+                    ConsoleLogger.error("Error running scheduler " + err.getMessage());
+                });
+
     }
 
     /**
@@ -69,11 +114,11 @@ public class Scheduler {
         if (!timedOutGroups.isEmpty()) {
             ConsoleLogger.debug("Found " + timedOutGroups.size() + " timed-out metric groups");
 
-            // Convert timed-out groups to expected format
-            JsonObject requestPayload = preparePollingRequest(timedOutGroups);
+            // Prepare metric groups for polling request
+            JsonArray metricGroups = preparePollingMetricGroups(timedOutGroups);
 
-            // Send to plugin manager
-            sendToPluginManager(requestPayload)
+            // Send to plugin manager using the proper polling method
+            PluginManager.runPolling(metricGroups)
                     .onSuccess(this::processAndSaveResults)
                     .onFailure(err -> ConsoleLogger.error("Error in plugin manager polling: " + err.getMessage()));
         } else {
@@ -82,11 +127,11 @@ public class Scheduler {
     }
 
     /**
-     * Prepare the polling request payload in the required format
+     * Prepare the metric groups for polling in the required format
      * @param timedOutGroups List of timed-out metric groups
-     * @return JsonObject with the formatted request
+     * @return JsonArray with formatted metric groups
      */
-    private JsonObject preparePollingRequest(List<JsonObject> timedOutGroups) {
+    private JsonArray preparePollingMetricGroups(List<JsonObject> timedOutGroups) {
         JsonArray metricGroups = new JsonArray();
 
         for (JsonObject metricGroup : timedOutGroups) {
@@ -95,69 +140,13 @@ public class Scheduler {
                     .put("name", metricGroup.getString("name"))
                     .put("ip", metricGroup.getString("ip"))
                     .put("port", metricGroup.getInteger("port"))
-                    .put("credential", metricGroup.getJsonObject("credential"));
+                    .put("credentials", metricGroup.getJsonObject("credential"));
 
             metricGroups.add(groupData);
         }
 
-        return new JsonObject()
-                .put("type", "polling")
-                .put("metric_groups", metricGroups);
-    }
-
-    /**
-     * Send the request to plugin manager
-     * @param requestPayload The request payload
-     * @return Future with the response from the plugin manager
-     */
-    private Future<JsonArray> sendToPluginManager(JsonObject requestPayload) {
-        Promise<JsonArray> promise = Promise.promise();
-
-        ConsoleLogger.debug("Request payload " + requestPayload);
-
-        ConsoleLogger.debug("Sending polling request to plugin manager: " + requestPayload.encode());
-
-        // Extract required parameters for plugin manager
-        JsonArray ips = new JsonArray();
-        int port = 0;
-        JsonArray credentials = new JsonArray();
-
-        // Extract IPs, port, and credentials from the metric groups
-        JsonArray metricGroups = requestPayload.getJsonArray("metric_groups");
-        for (int i = 0; i < metricGroups.size(); i++) {
-            JsonObject metricGroup = metricGroups.getJsonObject(i);
-            ips.add(metricGroup.getString("ip"));
-
-            // Use the first port found (assuming all are the same)
-            if (port == 0) {
-                port = metricGroup.getInteger("port");
-            }
-
-            // Add credential if not already present
-            JsonObject credential = metricGroup.getJsonObject("credential");
-            boolean credentialExists = false;
-
-            for (int j = 0; j < credentials.size(); j++) {
-                if (credential.getInteger("id").equals(credential.getInteger("id"))) {
-                    credentialExists = true;
-                    break;
-                }
-            }
-
-            if (!credentialExists) {
-                credentials.add(credential);
-            }
-        }
-
-        // Generate a unique discovery ID (using timestamp)
-        int discoveryId = (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
-
-        // Send to plugin manager
-        PluginManager.runDiscovery(discoveryId, ips, port, credentials)
-                .onSuccess(promise::complete)
-                .onFailure(promise::fail);
-
-        return promise.future();
+        ConsoleLogger.debug("Prepared metric groups for polling: " + metricGroups.encode());
+        return metricGroups;
     }
 
     /**
@@ -168,7 +157,7 @@ public class Scheduler {
         ConsoleLogger.debug("Processing results from plugin manager: " + results.encode());
 
         // Create a batch of parameters for saving to database
-        JsonArray batchParams = new JsonArray();
+        List<Tuple> batchParams = new ArrayList<>();
 
         for (int i = 0; i < results.size(); i++) {
             JsonObject result = results.getJsonObject(i);
@@ -184,12 +173,13 @@ public class Scheduler {
                 result.put("time", ZonedDateTime.now().toString());
             }
 
-            // Create parameters for database insert
+            ConsoleLogger.debug("DURING SAVE " + result);
 
-            batchParams.add(Tuple.wrap(List.of(
+            // Create parameters for database insert
+            batchParams.add(Tuple.of(
                     result.getInteger("provision_profile_id"),
                     result.getString("name"),
-                    result.getString("data"))));
+                    result.getString("data")));
         }
 
         // Save to database

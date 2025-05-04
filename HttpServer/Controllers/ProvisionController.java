@@ -122,26 +122,29 @@ public class ProvisionController
                                     }
 
 
-                                    // INSERT Into Cache
                                     for(var i = 0; i < provisionedIps.size(); i++) {
-                                        var provisionedObject = provisionedIps.getJsonArray(0).getJsonObject(i);
-                                        var value = new JsonObject()
-                                                .put("provision_profile_id", provisionedObject.getInteger("id"))
-                                                .put("port", Integer.parseInt(provisionedObject.getString("port")))
-                                                .put("credential", provisionedObject.getJsonObject("credential"))
-                                                .put("ip", provisionedObject.getString("ip"));
+                                        var provisionedObject = provisionedIps.getJsonObject(i);
 
-                                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++)
-                                        {
-                                            value.put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
-                                            value.put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
+                                        ConsoleLogger.debug("Inside DEBUG");
+
+                                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
+                                            // Create a NEW JsonObject for each metric group
+                                            var metricGroupValue = new JsonObject()
+                                                    .put("provision_profile_id", provisionedObject.getInteger("id"))
+                                                    .put("port", Integer.parseInt(provisionedObject.getString("port")))
+                                                    // Make a copy of the credential object to avoid reference issues
+                                                    .put("credential", provisionedObject.getJsonObject("credential").copy())
+                                                    .put("ip", provisionedObject.getString("ip"))
+                                                    .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
+                                                    .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
 
                                             var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
-                                            MetricGroupCacheStore.setCachedMetricGroup(key, value);
-                                            MetricGroupCacheStore.setReferencedMetricGroup(key, value);
+                                            ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
+                                                    provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
 
+                                            MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
+                                            MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
                                         }
-
                                     }
 
                                     HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionedIps);

@@ -41,7 +41,13 @@ public class ProvisionService implements BaseDatabaseService {
         ConsoleLogger.debug("ProvisionServiceImpl => getAll" + " => Running on " + Thread.currentThread().getName());
         return PostgresQuery
                 .execute(ProvisionQueries.GET_PROVISION_QUERY)
-                                .map(PostgresQuery::toJsonArray);
+                                .map(PostgresQuery::toJsonArray)
+                .onSuccess(array -> {
+                    ConsoleLogger.debug("Successfully converted result to JsonArray, size: " + array.size());
+                })
+                .onFailure(err -> {
+                    ConsoleLogger.error("Failed to execute getAll query: " + err.getMessage());
+                });
     }
 
     @Override

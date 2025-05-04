@@ -53,7 +53,7 @@ public class PolledDataService implements BaseDatabaseService {
     public Future<JsonArray> save(List<Tuple> params) {
         ConsoleLogger.debug("PolledDataServiceImpl => save => " + params + " => Running on " + Thread.currentThread().getName());
         return PostgresQuery
-                .execute(PollingQueries.CREATE_POLLING_RESULTS_IN_BATCH_QUERY)
+                .execute(PollingQueries.CREATE_POLLING_RESULTS_IN_BATCH_QUERY, params)
                 .map(PostgresQuery::toJsonArray);
     }
 

@@ -54,10 +54,9 @@ public class App
                 createPolledDataSchemaFuture
         )).onSuccess(v -> {
 
-            scheduler.start();
-
             vertx.deployVerticle(new Server(), httpResult -> {
                 if (httpResult.succeeded()) {
+                    scheduler.start();
                     ConsoleLogger.info("Success Deploying HttpVerticle On Thread [ " + Thread.currentThread().getName() + " ] ID [ " + httpResult.result() + " ]");
                 } else {
                     scheduler.stop();

@@ -48,7 +48,7 @@ public class ProvisionQueries {
                     "), " +
                     "inserted_metrics AS (" +
                     "    INSERT INTO metric_groups (provision_profile_id, name, polling_interval) " +
-                    "    SELECT p.id, m.metric_group_name, 300 " +
+                    "    SELECT p.id, m.metric_group_name, 30 " +
                     "    FROM inserted_provision p, " +
                     "         (SELECT unnest(enum_range(NULL::metric_group_name)) AS metric_group_name) m " +
                     "    RETURNING *" +
@@ -84,15 +84,22 @@ public class ProvisionQueries {
      * @return All provision profiles with their associated metric_groups
      */
     public static final String GET_PROVISION_QUERY =
-            "SELECT p.id, p.ip, p.port, p.credential_id," +
-                    "       json_agg(json_build_object(" +
-                    "           'provision_profile_id', m.provision_profile_id," +
-                    "           'name', m.name," +
-                    "           'polling_interval', m.polling_interval" +
-                    "       )) AS metric_groups" +
-                    " FROM provision_profiles p" +
-                    " LEFT JOIN metric_groups m ON p.id = m.provision_profile_id" +
-                    " GROUP BY p.id;";
+            "SELECT p.id, p.ip, p.port, " +
+                    "json_build_object(" +
+                    "    'id', c.id, " +
+                    "    'username', c.username, " +
+                    "    'password', c.password" +
+                    ") AS credential, " +
+                    "json_agg(json_build_object(" +
+                    "    'id', m.id, " +
+                    "    'provision_profile_id', m.provision_profile_id, " +
+                    "    'name', m.name, " +
+                    "    'polling_interval', m.polling_interval" +
+                    ")) AS metric_groups " +
+                    "FROM provision_profiles p " +
+                    "LEFT JOIN credential_profiles c ON p.credential_id = c.id " +
+                    "LEFT JOIN metric_groups m ON p.id = m.provision_profile_id " +
+                    "GROUP BY p.id, c.id;";
 
     /**
      * Retrieves a specific provision profile with its associated metric_groups.
