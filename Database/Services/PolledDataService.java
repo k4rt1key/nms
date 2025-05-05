@@ -37,9 +37,11 @@ public class PolledDataService implements BaseDatabaseService {
     }
 
     @Override
-    public Future<JsonArray> getAll() {
-        ConsoleLogger.warn("PolledDataServiceImpl => getAll method not implemented" + " => Running on " + Thread.currentThread().getName());
-        return null;
+    public Future<JsonArray> getAll()
+    {
+        String GET_ALL_POLLED_DATA = "SELECT * FROM polling_results;";
+        return PostgresQuery.execute(GET_ALL_POLLED_DATA)
+                .map(PostgresQuery::toJsonArray);
     }
 
     @Override

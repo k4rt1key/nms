@@ -39,49 +39,9 @@ public class Scheduler {
      */
     public void start() {
         ConsoleLogger.debug("Starting scheduler with interval: " + timerIntervalMs + "ms");
+        MetricGroupCacheStore.populate().onSuccess((res)-> this.timerId = vertx.setPeriodic(timerIntervalMs, id -> processMetricGroups()))
+                .onFailure(err -> ConsoleLogger.error("Error running scheduler " + err.getMessage()));
 
-        App.provisionService
-                .getAll()
-                .onSuccess(provisionedIps -> {
-
-                    if(provisionedIps.isEmpty()){
-                        ConsoleLogger.info("There is no provisions to cache");
-                    }
-
-                    ConsoleLogger.debug(provisionedIps.encode());
-                    // INSERT Into Cache
-
-                    for(var i = 0; i < provisionedIps.size(); i++) {
-                        var provisionedObject = provisionedIps.getJsonObject(i);
-
-                        ConsoleLogger.debug("Inside DEBUG");
-
-                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
-                            // Create a NEW JsonObject for each metric group
-                            var metricGroupValue = new JsonObject()
-                                    .put("provision_profile_id", provisionedObject.getInteger("id"))
-                                    .put("port", Integer.parseInt(provisionedObject.getString("port")))
-                                    // Make a copy of the credential object to avoid reference issues
-                                    .put("credential", provisionedObject.getJsonObject("credential").copy())
-                                    .put("ip", provisionedObject.getString("ip"))
-                                    .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
-                                    .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
-
-                            var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
-                            ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
-                                    provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
-
-                            MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
-                            MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
-                        }
-                    }
-                    ConsoleLogger.info("Cache populated " + provisionedIps.size());
-
-                    this.timerId = vertx.setPeriodic(timerIntervalMs, id -> processMetricGroups());
-                })
-                .onFailure(err -> {
-                    ConsoleLogger.error("Error running scheduler " + err.getMessage());
-                });
 
     }
 
@@ -175,11 +135,13 @@ public class Scheduler {
 
             ConsoleLogger.debug("DURING SAVE " + result);
 
+
             // Create parameters for database insert
             batchParams.add(Tuple.of(
                     result.getInteger("provision_profile_id"),
                     result.getString("name"),
-                    result.getString("data")));
+                    result.getString("data")
+            ));
         }
 
         // Save to database

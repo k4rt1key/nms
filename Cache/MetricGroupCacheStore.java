@@ -1,6 +1,9 @@
 package org.nms.Cache;
 
+import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import org.nms.App;
 import org.nms.ConsoleLogger;
 
 import java.util.ArrayList;
@@ -17,9 +20,58 @@ public class MetricGroupCacheStore {
         cachedMetricGroups.put(key, value);
     }
 
+    public static Future<JsonArray> populate()
+    {
+
+        return App.provisionService
+                .getAll()
+                .onSuccess(provisionedIps -> {
+
+                    if(provisionedIps.isEmpty()){
+                        ConsoleLogger.info("There is no provisions to cache");
+                    }
+
+                    ConsoleLogger.debug(provisionedIps.encode());
+                    // INSERT Into Cache
+
+                    for(var i = 0; i < provisionedIps.size(); i++) {
+                        var provisionedObject = provisionedIps.getJsonObject(i);
+
+                        ConsoleLogger.debug("Inside DEBUG");
+
+                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
+                            // Create a NEW JsonObject for each metric group
+                            var metricGroupValue = new JsonObject()
+                                    .put("provision_profile_id", provisionedObject.getInteger("id"))
+                                    .put("port", Integer.parseInt(provisionedObject.getString("port")))
+                                    // Make a copy of the credential object to avoid reference issues
+                                    .put("credential", provisionedObject.getJsonObject("credential").copy())
+                                    .put("ip", provisionedObject.getString("ip"))
+                                    .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
+                                    .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
+
+                            var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
+                            ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
+                                    provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
+
+                            MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
+                            MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
+                        }
+                    }
+                    ConsoleLogger.info("Cache populated " + provisionedIps.size());
+
+                });
+
+    }
     public static void setReferencedMetricGroup(Integer key, JsonObject value) {
         referencedMetricGroups.put(key, value);
     }
+
+    public static void clear() {
+        cachedMetricGroups.clear();
+        referencedMetricGroups.clear();
+    }
+
 
     /**
      * Gets metric groups that have timed out and need polling.
@@ -56,14 +108,11 @@ public class MetricGroupCacheStore {
         });
 
         ConsoleLogger.debug("Found " + timedOutMetricGroups.size() + " timed-out metric groups");
-        for (JsonObject t : timedOutMetricGroups) {
-            ConsoleLogger.debug("Timed-out metric group: " + t);
-        }
+
         return timedOutMetricGroups;
     }
 
     public static void decrementMetricGroupInterval(int interval) {
-        ConsoleLogger.debug("Decrementing polling intervals by " + interval + " seconds");
 
         cachedMetricGroups.forEach((key, value) -> {
             synchronized (value) { // Ensure thread-safe access to JsonObject
@@ -73,9 +122,6 @@ public class MetricGroupCacheStore {
                 cachedMetricGroups.put(key, updated);
             }
         });
-
-        cachedMetricGroups.forEach((key, value) ->
-                ConsoleLogger.debug("Value after decrement for key " + key + ": " + value)
-        );
+        ;
     }
 }

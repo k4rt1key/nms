@@ -17,7 +17,6 @@ public class PluginManager
     public static Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials) {
         return App.vertx.executeBlocking(() -> {
             try {
-                ConsoleLogger.debug("Recieved discovery by plugin request for discovery id" + discoveryId + " Ips : " + ips + " port : " + port + " Credentials : " + credentials);
                 // Build input JSON
                 JsonObject discoveryInput = new JsonObject();
                 discoveryInput.put("type", "discovery");
@@ -26,6 +25,7 @@ public class PluginManager
                 discoveryInput.put("port", port);
                 discoveryInput.put("credentials", credentials);
 
+                ConsoleLogger.debug("Discovery input " + discoveryInput);
                 // Convert to command string
                 String inputJsonStr = discoveryInput.encode();
                 String[] command = {Constants.PLUGIN_PATH, inputJsonStr};

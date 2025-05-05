@@ -110,6 +110,8 @@ public class ProvisionQueries {
     public static final String GET_PROVISION_BY_ID_QUERY =
             "SELECT p.id, p.ip, p.port, p.credential_id," +
                     "       json_agg(json_build_object(" +
+                    "    'id', m.id, " +
+
                     "           'provision_profile_id', m.provision_profile_id," +
                     "           'name', m.name," +
                     "           'polling_interval', m.polling_interval" +

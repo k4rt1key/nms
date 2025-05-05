@@ -110,47 +110,44 @@ public class ProvisionController
                     }
 
                     CompositeFuture.join(provisionsToAddFutures)
-                            .onSuccess(v -> {
-                                v.onSuccess(savedProvisions -> {
-                                    var provisionedIps = new JsonArray();
-                                    for(var i = 1; i < savedProvisions.size() + 1; i++)
+                            .onSuccess(v -> v.onSuccess(savedProvisions -> {
+                                var provisionedIps = new JsonArray();
+                                for(var i = 1; i < savedProvisions.size() + 1; i++)
+                                {
+                                    if(savedProvisions.resultAt(0) != null)
                                     {
-                                        if(savedProvisions.resultAt(0) != null)
-                                        {
-                                            provisionedIps.add(savedProvisions.resultAt(0));
-                                        }
+                                        provisionedIps.add(savedProvisions.resultAt(0));
                                     }
+                                }
 
 
-                                    for(var i = 0; i < provisionedIps.size(); i++) {
-                                        var provisionedObject = provisionedIps.getJsonObject(i);
+                                for(var i = 0; i < provisionedIps.getJsonArray(0).size(); i++) {
+                                    var provisionedObject = provisionedIps.getJsonArray(0).getJsonObject(i);
 
-                                        ConsoleLogger.debug("Inside DEBUG");
 
-                                        for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
-                                            // Create a NEW JsonObject for each metric group
-                                            var metricGroupValue = new JsonObject()
-                                                    .put("provision_profile_id", provisionedObject.getInteger("id"))
-                                                    .put("port", Integer.parseInt(provisionedObject.getString("port")))
-                                                    // Make a copy of the credential object to avoid reference issues
-                                                    .put("credential", provisionedObject.getJsonObject("credential").copy())
-                                                    .put("ip", provisionedObject.getString("ip"))
-                                                    .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
-                                                    .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
+                                    for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
+                                        // Create a NEW JsonObject for each metric group
+                                        var metricGroupValue = new JsonObject()
+                                                .put("provision_profile_id", provisionedObject.getInteger("id"))
+                                                .put("port", Integer.parseInt(provisionedObject.getString("port")))
+                                                // Make a copy of the credential object to avoid reference issues
+                                                .put("credential", provisionedObject.getJsonObject("credential").copy())
+                                                .put("ip", provisionedObject.getString("ip"))
+                                                .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
+                                                .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
 
-                                            var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
-                                            ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
-                                                    provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
+                                        var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
+                                        ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
+                                                provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
 
-                                            MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
-                                            MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
-                                        }
+                                        MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
+                                        MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
                                     }
+                                }
 
-                                    HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionedIps);
+                                HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionedIps);
 
-                                });
-                            })
+                            }))
                             .onFailure(err -> {
                                 err.printStackTrace();
                                 HttpResponse.sendFailure(ctx, 500, "Error during provisioning", err.getMessage());
@@ -178,7 +175,11 @@ public class ProvisionController
                     // Discovery found, proceed with delete
                     App.discoveryService
                             .delete(new JsonArray().add(id))
-                            .onSuccess(deletedDiscovery -> HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision))
+                            .onSuccess(deletedDiscovery -> {
+                                MetricGroupCacheStore.clear();
+                                MetricGroupCacheStore.populate();
+                                HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
+                            })
                             .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
@@ -209,6 +210,8 @@ public class ProvisionController
                 .onSuccess(v -> {
                    App.provisionService.get(new JsonArray().add(id))
                            .onSuccess(res -> {
+                               MetricGroupCacheStore.clear();
+                               MetricGroupCacheStore.populate();
                                HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
                            })
                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Failed To Update Discovery", err.getMessage()));
