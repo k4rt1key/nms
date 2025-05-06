@@ -23,7 +23,7 @@ public class MetricGroupCacheStore {
     public static Future<JsonArray> populate()
     {
 
-        return App.provisionService
+        return App.provisionModel
                 .getAll()
                 .onSuccess(provisionedIps -> {
 

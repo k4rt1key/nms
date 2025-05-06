@@ -7,6 +7,7 @@ import io.vertx.core.impl.logging.LoggerFactory;
 public class ConsoleLogger
 {
     public static final Logger logger = LoggerFactory.getLogger(ConsoleLogger.class);
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ConsoleLogger.class);
 
     public static void info(String message)

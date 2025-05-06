@@ -1,15 +1,12 @@
 package org.nms.Scheduler;
 
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
-import org.nms.App;
 import org.nms.Cache.MetricGroupCacheStore;
 import org.nms.ConsoleLogger;
-import org.nms.Database.Services.PolledDataService;
+import org.nms.Database.Models.MetricResultModel;
 import org.nms.PluginManager.PluginManager;
 
 import java.time.ZonedDateTime;
@@ -21,7 +18,7 @@ public class Scheduler {
     private final Vertx vertx;
     private final long timerIntervalMs;
     private long timerId;
-    private final PolledDataService polledDataService;
+    private final MetricResultModel polledDataService;
 
     /**
      * Constructor for Scheduler
@@ -31,7 +28,7 @@ public class Scheduler {
     public Scheduler(Vertx vertx, int intervalSeconds) {
         this.vertx = vertx;
         this.timerIntervalMs = TimeUnit.SECONDS.toMillis(intervalSeconds);
-        this.polledDataService = PolledDataService.getInstance();
+        this.polledDataService = MetricResultModel.getInstance();
     }
 
     /**
@@ -133,15 +130,30 @@ public class Scheduler {
                 result.put("time", ZonedDateTime.now().toString());
             }
 
-            ConsoleLogger.debug("DURING SAVE " + result);
-
-
-            // Create parameters for database insert
-            batchParams.add(Tuple.of(
-                    result.getInteger("provision_profile_id"),
-                    result.getString("name"),
-                    result.getString("data")
-            ));
+            if(!getJsonObject(result.getString("data")).isEmpty())
+            {
+                // Create parameters for database insert
+                batchParams.add(Tuple.of(
+                        result.getInteger("provision_profile_id"),
+                        result.getString("name"),
+                        getJsonObject(result.getString("data"))
+                ));
+            }
+            else if(!getJsonArray(result.getString("data")).isEmpty())
+            {  // Create parameters for database insert
+                batchParams.add(Tuple.of(
+                        result.getInteger("provision_profile_id"),
+                        result.getString("name"),
+                        getJsonArray(result.getString("data"))
+                ));
+            }
+            else {
+                batchParams.add(Tuple.of(
+                        result.getInteger("provision_profile_id"),
+                        result.getString("name"),
+                        result.getString("data")
+                ));
+            }
         }
 
         // Save to database
@@ -149,6 +161,38 @@ public class Scheduler {
             polledDataService.save(batchParams)
                     .onSuccess(saved -> ConsoleLogger.debug("Saved " + saved.size() + " polling results to database"))
                     .onFailure(err -> ConsoleLogger.error("Error saving polling results: " + err.getMessage()));
+        }
+    }
+
+
+    public static JsonObject getJsonObject(String s)
+    {
+        try
+        {
+            return new JsonObject(s);
+        }
+        catch (Exception e)
+        {
+            ConsoleLogger.info("Error parsing json");
+
+            return new JsonObject();
+        }
+    }
+
+    public static JsonArray getJsonArray(String s)
+    {
+        try
+        {
+            System.out.println(new JsonArray(s));
+
+            return new JsonArray(s);
+
+        }
+        catch (Exception e)
+        {
+            ConsoleLogger.info("Error parsing json");
+
+            return new JsonArray();
         }
     }
 }

@@ -8,10 +8,6 @@ public class Constants
 
     public static final String JWT_SECRET = "secret";
 
-    public static final String PING_CHECK_EVENTBUS_ADDRESS = "ping";
-
-    public static final String PORT_CHECK_EVENTBUS_ADDRESS = "port";
-
     public static final String PLUGIN_PATH = "/home/kartikey/NMS/Backend/src/main/Plugin/nms-plugin";
 
 }
