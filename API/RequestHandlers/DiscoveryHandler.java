@@ -114,7 +114,8 @@ public class DiscoveryHandler
         // Step 1: Create discovery
         App.discoveryModel
                 .save(new JsonArray().add(name).add(ip).add(ipType).add(port))
-                .onSuccess(discovery -> {
+                .onSuccess(discovery ->
+                {
                     if (discovery.isEmpty())
                     {
                         HttpResponse.sendFailure(ctx, 400, "Failed to create discovery");
@@ -145,12 +146,11 @@ public class DiscoveryHandler
                                 // Step 3: Get complete discovery with credentials
                                 App.discoveryModel
                                         .getWithCredentialsById(new JsonArray().add(discoveryId))
-                                        .onSuccess(discoveryWithCredentials -> {
-                                            HttpResponse.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials);
-                                        })
+                                        .onSuccess(discoveryWithCredentials -> HttpResponse.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials))
                                         .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
                             })
-                            .onFailure(err -> {
+                            .onFailure(err ->
+                            {
                                 // Rollback discovery creation if adding credentials fails
                                 App.discoveryModel
                                         .delete(new JsonArray().add(discoveryId))

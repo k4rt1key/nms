@@ -57,25 +57,29 @@ public class UserHandler
                 .compose(user ->
                 {
                     // User already exists
-                    if (user != null && !user.isEmpty()) {
+                    if (user != null && !user.isEmpty())
+                    {
                         HttpResponse.sendFailure(ctx, 409, "User already exists");
+
                         return Future.failedFuture(new Exception("User Already Exist"));
                     }
 
                     return Future.succeededFuture();
+
                 })
                 .compose(v ->
 
                         // Step : 2 - Register user
                         App.userModel.save(new JsonArray()
                                         .add(ctx.body().asJsonObject().getString("username"))
-                                        .add(ctx.body().asJsonObject().getString("email"))
                                         .add(ctx.body().asJsonObject().getString("password"))
                         ))
+
                 .onSuccess(user ->
                 {
                     // User in response not found
-                    if (user.isEmpty()) {
+                    if (user.isEmpty())
+                    {
                         HttpResponse.sendFailure(ctx, 400, "Cannot register user");
                         return;
                     }
@@ -109,7 +113,7 @@ public class UserHandler
                         return;
                     }
 
-                    // Step - 2 : If exist, Validate password
+                    // Step - 2 : If existed, Validate password
                     var password = ctx.body().asJsonObject().getString("password");
 
                     if(!user.getJsonObject(0).getString("password").equals(password))
@@ -178,7 +182,7 @@ public class UserHandler
                         return;
                     }
 
-                    // Step - 2 : If exist, Delete user
+                    // Step - 2 : If existed, Delete user
                     App.userModel
                             .delete(new JsonArray().add(id))
                             .onSuccess( delRes -> HttpResponse.sendSuccess(ctx, 200, "User deleted Successfully", res))

@@ -21,14 +21,14 @@ public class ProvisionHandler
                 .getAll()
                 .onSuccess(provisions ->
                 {
-                    // Discoveries not found
+                    // Provisions not found
                     if (provisions.isEmpty())
                     {
                         HttpResponse.sendFailure(ctx, 404, "No provisions found");
                         return;
                     }
 
-                    // Discoveries found
+                    // Provisions found
                     HttpResponse.sendSuccess(ctx, 200, "Provisions found", provisions);
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
@@ -43,14 +43,14 @@ public class ProvisionHandler
                 .get(new JsonArray().add(id))
                 .onSuccess(provision ->
                 {
-                    // Discovery not found
+                    // Provision not found
                     if (provision.isEmpty())
                     {
                         HttpResponse.sendFailure(ctx, 404, "Provision not found");
                         return;
                     }
 
-                    // Discovery found
+                    // Provision found
                     HttpResponse.sendSuccess(ctx, 200, "Provision found", provision);
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
@@ -110,42 +110,32 @@ public class ProvisionHandler
                     }
 
                     CompositeFuture.join(provisionsToAddFutures)
-                            .onSuccess(v -> v.onSuccess(savedProvisions -> {
-                                var provisionedIps = new JsonArray();
-                                for(var i = 1; i < savedProvisions.size() + 1; i++)
+                            .onSuccess(v -> v.onSuccess(savedProvisions ->
+                            {
+
+                               /*
+                                    savedProvision Is Currently In This Format...
+                                    [ [ { id: 1, ip: '10.20.41.10', ... } ],  [ { id: 2, ip: '10.20.41.11', ... } ] ]
+
+                                    We Want It In This Format...
+                                    [ { id: 1, ip: '10.20.41.10', ... }, { id: 2, ip: '10.20.41.11', ... } ]
+
+                               */
+
+                                var provisionArray = new JsonArray();
+
+                                for(var i = 0; i < savedProvisions.size(); i++)
                                 {
-                                    if(savedProvisions.resultAt(0) != null)
+                                    if(savedProvisions.resultAt(i) != null)
                                     {
-                                        provisionedIps.add(savedProvisions.resultAt(0));
+                                        var savedProvision = (JsonArray) savedProvisions.resultAt(i);
+                                        provisionArray.add(savedProvision.getJsonObject(0));
                                     }
                                 }
 
+                                MetricGroupCacheStore.insertProvisionArray(provisionArray);
 
-                                for(var i = 0; i < provisionedIps.getJsonArray(0).size(); i++) {
-                                    var provisionedObject = provisionedIps.getJsonArray(0).getJsonObject(i);
-
-
-                                    for(var k = 0; k < provisionedObject.getJsonArray("metric_groups").size(); k++) {
-                                        // Create a NEW JsonObject for each metric group
-                                        var metricGroupValue = new JsonObject()
-                                                .put("provision_profile_id", provisionedObject.getInteger("id"))
-                                                .put("port", Integer.parseInt(provisionedObject.getString("port")))
-                                                // Make a copy of the credential object to avoid reference issues
-                                                .put("credential", provisionedObject.getJsonObject("credential").copy())
-                                                .put("ip", provisionedObject.getString("ip"))
-                                                .put("name", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"))
-                                                .put("polling_interval", provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("polling_interval"));
-
-                                        var key = provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getInteger("id");
-                                        ConsoleLogger.debug("Adding metric group with ID: " + key + " and name: " +
-                                                provisionedObject.getJsonArray("metric_groups").getJsonObject(k).getString("name"));
-
-                                        MetricGroupCacheStore.setCachedMetricGroup(key, metricGroupValue);
-                                        MetricGroupCacheStore.setReferencedMetricGroup(key, metricGroupValue);
-                                    }
-                                }
-
-                                HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionedIps);
+                                HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionArray);
 
                             }))
                             .onFailure(err -> {
@@ -164,7 +154,7 @@ public class ProvisionHandler
 
         // First check if discovery exists
         App.provisionModel
-                .delete(new JsonArray().add(id))
+                .get(new JsonArray().add(id))
                 .onSuccess(provision -> {
                     if (provision.isEmpty())
                     {
@@ -172,13 +162,17 @@ public class ProvisionHandler
                         return;
                     }
 
-                    // Discovery found, proceed with delete
-                    App.discoveryModel
+                    // Provision found, proceed with delete
+                    App.provisionModel
                             .delete(new JsonArray().add(id))
                             .onSuccess(deletedDiscovery -> {
-                                MetricGroupCacheStore.clear();
-                                MetricGroupCacheStore.populate();
-                                HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
+                                if(!deletedDiscovery.isEmpty()) {
+                                    MetricGroupCacheStore.deleteMetricGroups(deletedDiscovery.getJsonObject(0).getInteger("id"));
+                                    HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
+                                }
+                                else{
+                                    HttpResponse.sendFailure(ctx, 400, "Failed to delete Provision");
+                                }
                             })
                             .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
                 })
@@ -200,7 +194,7 @@ public class ProvisionHandler
             var pollingInterval = metrics.getJsonObject(i).getInteger("polling_interval");
             var enable = metrics.getJsonObject(i).getBoolean("enable");
 
-            updateMetricGroupsFuture.add(App.provisionModel.update(new JsonArray().add(id).add(pollingInterval).add(name)));
+            updateMetricGroupsFuture.add(App.provisionModel.update(new JsonArray().add(id).add(pollingInterval).add(name).add(null)));
         }
 
         Future.join(updateMetricGroupsFuture)
@@ -210,8 +204,7 @@ public class ProvisionHandler
                 .onSuccess(v -> {
                    App.provisionModel.get(new JsonArray().add(id))
                            .onSuccess(res -> {
-                               MetricGroupCacheStore.clear();
-                               MetricGroupCacheStore.populate();
+                               MetricGroupCacheStore.updateMetricGroups(res.getJsonObject(0).getJsonArray("metric_groups"));
                                HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
                            })
                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Failed To Update Discovery", err.getMessage()));

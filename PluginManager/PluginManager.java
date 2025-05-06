@@ -9,14 +9,20 @@ import org.nms.Constants;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class PluginManager
 {
-    public static Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials) {
+    private static final int DISCOVERY_TIMEOUT = 30;
+
+    private static final int POLLING_TIMEOUT = 30;
+
+    public static Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials)
+    {
         return App.vertx.executeBlocking(() -> {
             try {
-                // Build input JSON
+                // Step-1.1: Prepare Request Json
                 JsonObject discoveryInput = new JsonObject();
                 discoveryInput.put("type", "discovery");
                 discoveryInput.put("id", discoveryId);
@@ -24,80 +30,96 @@ public class PluginManager
                 discoveryInput.put("port", port);
                 discoveryInput.put("credentials", credentials);
 
-                ConsoleLogger.debug("Discovery input " + discoveryInput);
-                // Convert to command string
+                // Step-1.2: Prepare Command
                 String inputJsonStr = discoveryInput.encode();
                 String[] command = {Constants.PLUGIN_PATH, inputJsonStr};
 
-                System.out.println("Executing: " + String.join(" ", command));
-
+                // Step-2: Run Command
                 ProcessBuilder builder = new ProcessBuilder(command);
                 builder.redirectErrorStream(true);
                 Process process = builder.start();
 
-                // Read stdout from Go program
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String output = reader.lines().collect(Collectors.joining());
+                // Waiting for 20 Seconds For Reply
+                boolean done = process.waitFor(DISCOVERY_TIMEOUT, TimeUnit.SECONDS);
 
-                process.waitFor();
+                if(!done)
+                {
+                    ConsoleLogger.warn("⏱️ GoPlugin Is Not Responding Within " + DISCOVERY_TIMEOUT + " Seconds");
 
-                System.out.println("Received output:\n" + output);
+                    return new JsonArray();
+                }
+                else
+                {
+                    // Step-3: Read Output From Go's Stream
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    String output = reader.lines().collect(Collectors.joining());
 
-                // Parse output JSON
-                JsonObject outputJson = new JsonObject(output);
+                    // Parse Response JSON
+                    JsonObject outputJson = new JsonObject(output);
 
-                // Return results array
-                return outputJson.getJsonArray("result");
+                    // Return Result Array
+                    return outputJson.getJsonArray("result");
+                }
 
             }
             catch (Exception e)
             {
-                ConsoleLogger.error(e.getMessage());
+                ConsoleLogger.error("❌ Error Running Discovery In PluginManager " + e.getMessage());
+
                 return new JsonArray();
             }
-        }).onSuccess(Future::succeededFuture).onFailure(Future::failedFuture);
+        });
     }
 
-    public static Future<JsonArray> runPolling(JsonArray metricGroups) {
-        return App.vertx.executeBlocking(() -> {
-            try {
-                ConsoleLogger.debug("Received polling request for metric groups: " + metricGroups);
-
-                // Build input JSON
+    public static Future<JsonArray> runPolling(JsonArray metricGroups)
+    {
+        return App.vertx.executeBlocking(() ->
+        {
+            try
+            {
+                // Step-1.1: Prepare Request Json
                 JsonObject pollingInput = new JsonObject();
                 pollingInput.put("type", "polling");
                 pollingInput.put("metric_groups", metricGroups);
 
-                // Convert to command string
+                // Step-1.2: Prepare Command
                 String inputJsonStr = pollingInput.encode();
                 String[] command = {Constants.PLUGIN_PATH, inputJsonStr};
 
-                System.out.println("Executing polling: " + String.join(" ", command));
-
+                // Step-2: Run Command
                 ProcessBuilder builder = new ProcessBuilder(command);
                 builder.redirectErrorStream(true);
                 Process process = builder.start();
 
-                // Read stdout from Go program
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                String output = reader.lines().collect(Collectors.joining());
+                // Waiting for 20 Seconds For Reply
+                boolean done = process.waitFor(POLLING_TIMEOUT, TimeUnit.SECONDS);
 
-                process.waitFor();
+                if(!done)
+                {
+                    ConsoleLogger.warn("⏱️ GoPlugin Is Not Responding Within " + POLLING_TIMEOUT + " Seconds");
 
-                System.out.println("Received polling output:\n" + output);
+                    return new JsonArray();
+                }
+                else
+                {
+                    // Step-3: Read Output From Go's Stream
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    String output = reader.lines().collect(Collectors.joining());
 
-                // Parse output JSON
-                JsonObject outputJson = new JsonObject(output);
+                    // Parse Response JSON
+                    JsonObject outputJson = new JsonObject(output);
 
-                // Return metric groups array
-                return outputJson.getJsonArray("metric_groups");
+                    // Return Result Array
+                    return outputJson.getJsonArray("metric_groups");
+                }
             }
             catch (Exception e)
             {
-                ConsoleLogger.error("Error executing polling: " + e.getMessage());
+                ConsoleLogger.error("❌ Error Running Discovery In PluginManager " + e.getMessage());
+
                 return new JsonArray();
             }
-        }).onSuccess(Future::succeededFuture).onFailure(Future::failedFuture);
+        });
     }
 
 }

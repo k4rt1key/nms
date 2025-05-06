@@ -22,8 +22,6 @@ public class App
 
     public static final ProvisionModel provisionModel = ProvisionModel.getInstance();
 
-    public static final MetricGroupModel metricGroupModel = MetricGroupModel.getInstance();
-
     public static final MetricResultModel metricResultModel = MetricResultModel.getInstance();
 
     public static Future<Void> createUserSchemaFuture = userModel.createSchema();
@@ -34,43 +32,22 @@ public class App
 
     public static Future<Void> createProvisionSchemaFuture = provisionModel.createSchema();
 
-    public static Future<Void> createMetricGroupSchemaFuture = metricGroupModel.createSchema();
-
     public static Future<Void> createPolledDataSchemaFuture = metricResultModel.createSchema();
 
 
     public static void main( String[] args )
     {
 
-        Scheduler scheduler = new Scheduler(vertx, 10);
-
         Future.join(List.of(
                 createUserSchemaFuture,
                 createCredentialSchemaFuture,
                 createDiscoverySchemaFuture,
                 createProvisionSchemaFuture,
-                createMetricGroupSchemaFuture,
                 createPolledDataSchemaFuture
-        )).onSuccess(v -> vertx.deployVerticle(new Server(), httpResult ->
-        {
-            if (httpResult.succeeded())
-            {
-                scheduler.start();
-
-                ConsoleLogger.info("Success Deploying HttpVerticle On Thread [ " + Thread.currentThread().getName() + " ] ID [ " + httpResult.result() + " ]");
-            }
-            else
-            {
-                scheduler.stop();
-
-                ConsoleLogger.error("Failure Deploying HTTP Verticle, Cause [ " + httpResult.cause().getMessage() + " ]");
-            }
-        })).onFailure(err ->
-        {
-            ConsoleLogger.error("Failed to create schemas " + err.getMessage());
-
-            scheduler.stop();
-        });
-
+        ))
+                .compose(v -> vertx.deployVerticle(new Scheduler()))
+                .compose(v -> vertx.deployVerticle(new Server()))
+                .onSuccess(v -> ConsoleLogger.info("✅ Successfully Started NMS Application"))
+                .onFailure(err ->  ConsoleLogger.error("❌ Failed to start NMS Application " + err.getMessage()));
     }
 }

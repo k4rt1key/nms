@@ -1,9 +1,10 @@
 package org.nms.Scheduler;
 
-import io.vertx.core.Vertx;
+import io.vertx.core.AbstractVerticle;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
+import org.nms.App;
 import org.nms.Cache.MetricGroupCacheStore;
 import org.nms.ConsoleLogger;
 import org.nms.Database.Models.MetricResultModel;
@@ -12,43 +13,41 @@ import org.nms.PluginManager.PluginManager;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-public class Scheduler {
-    private final Vertx vertx;
-    private final long timerIntervalMs;
+public class Scheduler extends AbstractVerticle
+{
+    private final int CHECKING_INTERVAL = 10;
+
     private long timerId;
-    private final MetricResultModel polledDataService;
 
-    /**
-     * Constructor for Scheduler
-     * @param vertx The Vertx instance to use for scheduling
-     * @param intervalSeconds The interval at which the scheduler runs in seconds
-     */
-    public Scheduler(Vertx vertx, int intervalSeconds) {
-        this.vertx = vertx;
-        this.timerIntervalMs = TimeUnit.SECONDS.toMillis(intervalSeconds);
-        this.polledDataService = MetricResultModel.getInstance();
-    }
+    private final MetricResultModel polledDataService = MetricResultModel.getInstance();
+
 
     /**
      * Starts the scheduler
      */
-    public void start() {
-        ConsoleLogger.debug("Starting scheduler with interval: " + timerIntervalMs + "ms");
-        MetricGroupCacheStore.populate().onSuccess((res)-> this.timerId = vertx.setPeriodic(timerIntervalMs, id -> processMetricGroups()))
-                .onFailure(err -> ConsoleLogger.error("Error running scheduler " + err.getMessage()));
+    @Override
+    public void start()
+    {
+        ConsoleLogger.debug("✅ Starting SchedulerVerticle With Checking Interval => " + CHECKING_INTERVAL + " Seconds On Thread [ " + Thread.currentThread().getName() + " ] ");
 
+        MetricGroupCacheStore
+                .populate()
+                .onSuccess((res)-> timerId = App.vertx.setPeriodic(CHECKING_INTERVAL * 1000, id -> processMetricGroups()))
+                .onFailure(err -> ConsoleLogger.error("❌ Error Running Scheduler => " + err.getMessage()));
 
     }
 
     /**
      * Stops the scheduler
      */
-    public void stop() {
-        ConsoleLogger.debug("Stopping scheduler");
-        if (timerId != 0) {
-            vertx.cancelTimer(timerId);
+    @Override
+    public void stop()
+    {
+        if (timerId != 0)
+        {
+            App.vertx.cancelTimer(timerId);
+            ConsoleLogger.debug("\uD83D\uDED1 Scheduler Stopped");
             timerId = 0;
         }
     }
@@ -56,83 +55,76 @@ public class Scheduler {
     /**
      * Process metric groups, decrementing intervals and handling timed-out groups
      */
-    private void processMetricGroups() {
-        ConsoleLogger.debug("Processing metric groups");
+    private void processMetricGroups()
+    {
+        // Step-1: Decrement Intervals By xyz Seconds In Cache
+        MetricGroupCacheStore.decrementMetricGroupInterval(CHECKING_INTERVAL);
 
-        // Calculate time to decrement (based on scheduler interval)
-        int decrementIntervalSeconds = (int) TimeUnit.MILLISECONDS.toSeconds(timerIntervalMs);
-
-        // Decrement intervals in cache
-        MetricGroupCacheStore.decrementMetricGroupInterval(decrementIntervalSeconds);
-
-        // Get timed-out metric groups
+        // Step-2: After Decrementing Check For Timed-Out MetricGroups
         List<JsonObject> timedOutGroups = MetricGroupCacheStore.getTimedOutMetricGroups();
 
+        // Step-3: If There are Timed-out MetricGroups Ready For Polling...
         if (!timedOutGroups.isEmpty()) {
-            ConsoleLogger.debug("Found " + timedOutGroups.size() + " timed-out metric groups");
-
-            // Prepare metric groups for polling request
+            // Step-4: Format Request For Polling
             JsonArray metricGroups = preparePollingMetricGroups(timedOutGroups);
 
-            // Send to plugin manager using the proper polling method
-            PluginManager.runPolling(metricGroups)
+            // Step-5: Send Request to PluginManager
+            // If Success : Process & Save Result
+            PluginManager
+                    .runPolling(metricGroups)
                     .onSuccess(this::processAndSaveResults)
-                    .onFailure(err -> ConsoleLogger.error("Error in plugin manager polling: " + err.getMessage()));
-        } else {
-            ConsoleLogger.debug("No timed-out metric groups found");
+                    .onFailure(err -> ConsoleLogger.error("❌ Error During Polling => " + err.getMessage()));
         }
     }
 
     /**
-     * Prepare the metric groups for polling in the required format
+     * Prepare the request for polling
      * @param timedOutGroups List of timed-out metric groups
-     * @return JsonArray with formatted metric groups
+     * @return JsonArray with formatted metric groups request
      */
-    private JsonArray preparePollingMetricGroups(List<JsonObject> timedOutGroups) {
+    private JsonArray preparePollingMetricGroups(List<JsonObject> timedOutGroups)
+    {
         JsonArray metricGroups = new JsonArray();
 
-        for (JsonObject metricGroup : timedOutGroups) {
+        for (JsonObject metricGroup : timedOutGroups)
+        {
             JsonObject groupData = new JsonObject()
                     .put("provision_profile_id", metricGroup.getInteger("provision_profile_id"))
                     .put("name", metricGroup.getString("name"))
                     .put("ip", metricGroup.getString("ip"))
                     .put("port", metricGroup.getInteger("port"))
-                    .put("credentials", metricGroup.getJsonObject("credential"));
+                    .put("credentials", metricGroup.getJsonObject("credentials"));
 
             metricGroups.add(groupData);
         }
 
-        ConsoleLogger.debug("Prepared metric groups for polling: " + metricGroups.encode());
         return metricGroups;
     }
 
     /**
-     * Process and save the results from plugin manager
+     * Process plugin manager's response and save the results in DB
      * @param results The results from plugin manager
      */
-    private void processAndSaveResults(JsonArray results) {
-        ConsoleLogger.debug("Processing results from plugin manager: " + results.encode());
-
-        // Create a batch of parameters for saving to database
+    private void processAndSaveResults(JsonArray results)
+    {
         List<Tuple> batchParams = new ArrayList<>();
 
-        for (int i = 0; i < results.size(); i++) {
+        for (int i = 0; i < results.size(); i++)
+        {
             JsonObject result = results.getJsonObject(i);
 
-            // Skip unsuccessful results
-            if (!result.getBoolean("success", false)) {
-                ConsoleLogger.warn("Skipping unsuccessful result: " + result.encode());
+            // Step-1: Skip unsuccessful results
+            if (!result.getBoolean("success", false))
+            {
                 continue;
             }
 
-            // Add timestamp if not present
-            if (result.getString("time", "").isEmpty()) {
-                result.put("time", ZonedDateTime.now().toString());
-            }
+            // Step-2: Add Timestamp
+            result.put("time", ZonedDateTime.now().toString());
 
+            // Step-3: Format Data Into JsonArray or JsonObject
             if(!getJsonObject(result.getString("data")).isEmpty())
             {
-                // Create parameters for database insert
                 batchParams.add(Tuple.of(
                         result.getInteger("provision_profile_id"),
                         result.getString("name"),
@@ -140,7 +132,7 @@ public class Scheduler {
                 ));
             }
             else if(!getJsonArray(result.getString("data")).isEmpty())
-            {  // Create parameters for database insert
+            {
                 batchParams.add(Tuple.of(
                         result.getInteger("provision_profile_id"),
                         result.getString("name"),
@@ -156,16 +148,15 @@ public class Scheduler {
             }
         }
 
-        // Save to database
-        if (!batchParams.isEmpty()) {
+        // Step-4: Save Into DB
+        if (!batchParams.isEmpty())
+        {
             polledDataService.save(batchParams)
-                    .onSuccess(saved -> ConsoleLogger.debug("Saved " + saved.size() + " polling results to database"))
-                    .onFailure(err -> ConsoleLogger.error("Error saving polling results: " + err.getMessage()));
+                    .onFailure(err -> ConsoleLogger.error("❌ Error During Saving Polled Data  => " + err.getMessage()));
         }
     }
 
-
-    public static JsonObject getJsonObject(String s)
+    private JsonObject getJsonObject(String s)
     {
         try
         {
@@ -173,25 +164,19 @@ public class Scheduler {
         }
         catch (Exception e)
         {
-            ConsoleLogger.info("Error parsing json");
-
             return new JsonObject();
         }
     }
 
-    public static JsonArray getJsonArray(String s)
+    private JsonArray getJsonArray(String s)
     {
         try
         {
-            System.out.println(new JsonArray(s));
-
             return new JsonArray(s);
 
         }
         catch (Exception e)
         {
-            ConsoleLogger.info("Error parsing json");
-
             return new JsonArray();
         }
     }

@@ -106,7 +106,7 @@ public class CredentialHandler
                                     .add(password)
                             )
                             .onSuccess(res -> HttpResponse.sendSuccess(ctx, 200, "Credential updated successfully", res))
-                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, err.getMessage()));
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
     }
@@ -131,7 +131,7 @@ public class CredentialHandler
                     App.credentialModel
                             .delete(new JsonArray().add(id))
                             .onSuccess(res -> HttpResponse.sendSuccess(ctx, 200, "Credential deleted successfully", credential))
-                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Error deleting credential: " + err.getMessage()));
+                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
     }

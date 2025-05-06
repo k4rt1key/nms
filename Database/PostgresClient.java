@@ -39,7 +39,7 @@ public class PostgresClient
         catch (Exception e)
         {
             ConsoleLogger.error("Failed to create Postgres client");
-            e.printStackTrace();
+
             return null;
         }
     }

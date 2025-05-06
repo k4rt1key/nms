@@ -10,11 +10,7 @@ public class MetricResultHandler
     {
         App.metricResultModel
                 .getAll()
-                .onSuccess((polledData -> {
-                    HttpResponse.sendSuccess(ctx, 200,"Polled Data", polledData);
-                }))
-                .onFailure(err -> {
-                    HttpResponse.sendFailure(ctx, 500, "Something Went Wrong");
-                });
+                .onSuccess((polledData -> HttpResponse.sendSuccess(ctx, 200,"Polled Data", polledData)))
+                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong"));
     }
 }
