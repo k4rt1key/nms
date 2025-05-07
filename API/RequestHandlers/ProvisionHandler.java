@@ -198,17 +198,13 @@ public class ProvisionHandler
         }
 
         Future.join(updateMetricGroupsFuture)
-                .onFailure(err -> {
-                    HttpResponse.sendFailure(ctx, 500, "Error Updating Metric groups", err.getMessage());
-                })
-                .onSuccess(v -> {
-                   App.provisionModel.get(new JsonArray().add(id))
-                           .onSuccess(res -> {
-                               MetricGroupCacheStore.updateMetricGroups(res.getJsonObject(0).getJsonArray("metric_groups"));
-                               HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
-                           })
-                           .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Failed To Update Discovery", err.getMessage()));
-                });
+                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Error Updating Metric groups", err.getMessage()))
+                .onSuccess(v -> App.provisionModel.get(new JsonArray().add(id))
+                        .onSuccess(res -> {
+                            MetricGroupCacheStore.updateMetricGroups(res.getJsonObject(0).getJsonArray("metric_groups"));
+                            HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
+                        })
+                        .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Failed To Update Discovery", err.getMessage())));
     }
 
 }
