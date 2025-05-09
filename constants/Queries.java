@@ -299,6 +299,10 @@ public class Queries
               AND dc.credential_id = $2
             RETURNING *;
             """;
+
+        public static final String DELETE_RESULT = """
+            DELETE FROM discovery_result WHERE discovery_id = $1;
+            """;
     }
 
     public static class Monitor

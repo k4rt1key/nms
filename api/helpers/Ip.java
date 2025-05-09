@@ -9,7 +9,7 @@ import java.util.List;
 
 public class Ip
 {
-    private static final int MAX_IP_COUNT = 1000;
+    private static final int MAX_IP_COUNT = 1024;
 
     // Returns a JSON array of IPs based on the input IP and type
     public static JsonArray getIpListAsJsonArray(String ip, String ipType)

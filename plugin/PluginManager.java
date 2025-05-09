@@ -20,7 +20,7 @@ public class PluginManager
 
     private static final int DISCOVERY_TIMEOUT_PER_IP = 1;
 
-    private static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 1;
+    private static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 10;
 
     public static Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials)
     {

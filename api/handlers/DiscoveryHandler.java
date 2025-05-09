@@ -2,12 +2,9 @@ package org.nms.api.handlers;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
-import org.nms.App;
 import org.nms.ConsoleLogger;
 import org.nms.api.helpers.HttpResponse;
 import org.nms.api.helpers.Ip;
@@ -20,7 +17,6 @@ import org.nms.plugin.PluginManager;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 
 public class DiscoveryHandler
 {
@@ -333,197 +329,183 @@ public class DiscoveryHandler
                         return Future.failedFuture(new Exception("Discovery not found"));
                     }
 
-                    // Check if Discovery Status is PENDING
-                    if(discoveryWithCredentials.getJsonObject(0).getString(Fields.Discovery.STATUS).equals(Fields.Discovery.COMPLETED_STATUS))
-                    {
-                        return Future.failedFuture(new Exception("Discovery Already Run"));
-                    }
+                    Promise<Object> isReady = Promise.promise();
+                    Future<Object> runDiscovery = isReady.future();
 
-                    // Extract necessary information
-                    var ips = discoveryWithCredentials.getJsonObject(0).getString(Fields.Discovery.IP);
-                    var ipType = discoveryWithCredentials.getJsonObject(0).getString(Fields.Discovery.IP_TYPE);
-                    var port = discoveryWithCredentials.getJsonObject(0).getInteger(Fields.Discovery.PORT);
+                    DbEngine
+                            .execute(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id))
+                            .compose(v -> {
 
-                    var ipArray = Ip.getIpListAsJsonArray(ips, ipType);
 
-                    // Step 2.1: Ping Check - Direct implementation instead of eventbus
-                    PingCheck.pingIps(ipArray)
-                            .compose(pingResults ->
-                            {
-                                var pingCheckPassedIps = new JsonArray();
+                                // Extract necessary information
+                                var ips = discoveryWithCredentials.getJsonObject(0).getString(Fields.Discovery.IP);
+                                var ipType = discoveryWithCredentials.getJsonObject(0).getString(Fields.Discovery.IP_TYPE);
+                                var port = discoveryWithCredentials.getJsonObject(0).getInteger(Fields.Discovery.PORT);
 
-                                var pingCheckFailedIps = new JsonArray();
+                                var ipArray = Ip.getIpListAsJsonArray(ips, ipType);
 
-                                // Process ping results
-                                for (int i = 0; i < pingResults.size(); i++)
-                                {
-                                    var result = pingResults.getJsonObject(i);
-
-                                    var success = result.getBoolean("success");
-
-                                    if (success)
-                                    {
-                                        pingCheckPassedIps.add(result.getString("ip"));
-                                    }
-                                    else
-                                    {
-                                        pingCheckFailedIps.add(result);
-                                    }
-                                }
-
-                                // If There is FailedIps then insert them into the discovery result
-                                List<Tuple> ipsToAdd = new ArrayList<>();
-
-                                if (!pingCheckFailedIps.isEmpty())
-                                {
-                                    for (var i = 0; i < pingCheckFailedIps.size(); i++)
-                                    {
-                                        var ip = pingCheckFailedIps.getJsonObject(i).getString("ip");
-
-                                        var message = pingCheckFailedIps.getJsonObject(i).getString("message");
-
-                                        ipsToAdd.add(Tuple.of(id, null, ip, message, "FAILED"));
-                                    }
-
-                                    return DbEngine
-                                            .execute(Queries.Discovery.INSERT_RESULT, ipsToAdd)
-                                            .compose(v -> Future.succeededFuture(pingCheckPassedIps));
-                                }
-                                else
-                                {
-                                    return Future.succeededFuture(pingCheckPassedIps);
-                                }
-                            })
-                            .compose(pingCheckPassedIps -> PortCheck.checkPorts(pingCheckPassedIps, port))
-                            .compose(portCheckResults ->
-                            {
-                                // Step 2.2: Port Check
-                                var portCheckPassedIps = new JsonArray();
-
-                                var portCheckFailedIps = new JsonArray();
-
-                                // Process ping results
-                                for (int i = 0; i < portCheckResults.size(); i++) {
-                                    var result = portCheckResults.getJsonObject(i);
-
-                                    var success = result.getBoolean("success");
-
-                                    if (success) {
-                                        portCheckPassedIps.add(result.getString("ip"));
-                                    } else {
-                                        portCheckFailedIps.add(result);
-                                    }
-                                }
-
-                                // If There is FailedIps then insert them into the discovery result
-                                List<Tuple> ipsToAdd = new ArrayList<>();
-
-                                if (!portCheckFailedIps.isEmpty()) {
-                                    for (var i = 0; i < portCheckFailedIps.size(); i++) {
-                                        var ip = portCheckFailedIps.getJsonObject(i).getString("ip");
-
-                                        var message = portCheckFailedIps.getJsonObject(i).getString("message");
-
-                                        ipsToAdd.add(Tuple.of(id, null, ip, message, "FAILED"));
-                                    }
-
-                                    return DbEngine
-                                            .execute(Queries.Discovery.INSERT_RESULT, ipsToAdd)
-                                            .compose(v -> Future.succeededFuture(portCheckPassedIps));
-                                } else {
-                                    return Future.succeededFuture(portCheckPassedIps);
-                                }
-                            })
-                            .compose(portCheckPassedIps ->
-                            {
-                                // Step 3: Credentials Check
-
-                                // Get Ips
-                                var ipsToCheckForCredentials = new JsonArray();
-
-                                for(var i = 0; i < portCheckPassedIps.size(); i++)
-                                {
-                                    ipsToCheckForCredentials.add(portCheckPassedIps.getString(i));
-                                }
-
-                                // Get Credentials
-                                var credentialsToCheck = discoveryWithCredentials.getJsonObject(0).getJsonArray(Fields.Discovery.CREDENTIAL_JSON);
-
-                                return PluginManager
-                                        .runDiscovery(id, ipsToCheckForCredentials, port, credentialsToCheck)
-                                        .compose((credentialCheckResults ->
+                                // Step 2.1: Ping Check - Direct implementation instead of eventbus
+                                PingCheck.pingIps(ipArray)
+                                        .compose(pingResults ->
                                         {
-                                            var credentialCheckPassedResult = new JsonArray();
+                                            var pingCheckPassedIps = new JsonArray();
 
-                                            var credentialCheckFailedResult = new JsonArray();
+                                            var pingCheckFailedIps = new JsonArray();
 
-                                            for(var i = 0; i < credentialCheckResults.size(); i++)
-                                            {
-                                                var status = credentialCheckResults.getJsonObject(i).getBoolean("success");
+                                            // Process ping results
+                                            for (int i = 0; i < pingResults.size(); i++) {
+                                                var result = pingResults.getJsonObject(i);
 
-                                                if(status)
-                                                {
-                                                    credentialCheckPassedResult.add(credentialCheckResults.getJsonObject(i));
-                                                }
-                                                else
-                                                {
-                                                    credentialCheckFailedResult.add(credentialCheckResults.getJsonObject(i));
-                                                }
-                                            }
+                                                var success = result.getBoolean("success");
 
-                                            // Handle failed credential checks
-                                            var ipsToAddAfterCredentialFailure = new ArrayList<Tuple>();
-
-                                            if (!credentialCheckFailedResult.isEmpty())
-                                            {
-                                                for (var i = 0; i < credentialCheckFailedResult.size(); i++)
-                                                {
-                                                    var ip = credentialCheckFailedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.IP);
-
-                                                    var message = credentialCheckFailedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.MESSAGE);
-
-                                                    ipsToAddAfterCredentialFailure.add(Tuple.of(id, null, ip, message, "FAILED"));
+                                                if (success) {
+                                                    pingCheckPassedIps.add(result.getString("ip"));
+                                                } else {
+                                                    pingCheckFailedIps.add(result);
                                                 }
                                             }
 
-                                            // Handle successful credential checks
-                                            var ipsToAddAfterCredentialSuccess = new ArrayList<Tuple>();
+                                            // If There is FailedIps then insert them into the discovery result
+                                            List<Tuple> ipsToAdd = new ArrayList<>();
 
-                                            if (!credentialCheckPassedResult.isEmpty())
-                                            {
-                                                for (var i = 0; i < credentialCheckPassedResult.size(); i++)
-                                                {
-                                                    var ip = credentialCheckPassedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.IP);
+                                            if (!pingCheckFailedIps.isEmpty()) {
+                                                for (var i = 0; i < pingCheckFailedIps.size(); i++) {
+                                                    var ip = pingCheckFailedIps.getJsonObject(i).getString("ip");
 
-                                                    var message = credentialCheckPassedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.MESSAGE);
+                                                    var message = pingCheckFailedIps.getJsonObject(i).getString("message");
 
-                                                    var credential = credentialCheckPassedResult.getJsonObject(i).getJsonObject(Fields.PluginDiscoveryResponse.CREDENTIALS).getInteger(Fields.Credential.ID);
+                                                    ipsToAdd.add(Tuple.of(id, null, ip, message, "FAILED"));
+                                                }
 
-                                                    ipsToAddAfterCredentialSuccess.add(Tuple.of(id, credential, ip, message, "COMPLETED"));
+                                                return DbEngine
+                                                        .execute(Queries.Discovery.INSERT_RESULT, ipsToAdd)
+                                                        .compose(v2 -> Future.succeededFuture(pingCheckPassedIps));
+                                            } else {
+                                                return Future.succeededFuture(pingCheckPassedIps);
+                                            }
+                                        })
+                                        .compose(pingCheckPassedIps -> PortCheck.checkPorts(pingCheckPassedIps, port))
+                                        .compose(portCheckResults ->
+                                        {
+                                            // Step 2.2: Port Check
+                                            var portCheckPassedIps = new JsonArray();
+
+                                            var portCheckFailedIps = new JsonArray();
+
+                                            // Process ping results
+                                            for (int i = 0; i < portCheckResults.size(); i++) {
+                                                var result = portCheckResults.getJsonObject(i);
+
+                                                var success = result.getBoolean("success");
+
+                                                if (success) {
+                                                    portCheckPassedIps.add(result.getString("ip"));
+                                                } else {
+                                                    portCheckFailedIps.add(result);
                                                 }
                                             }
 
-                                            // Handle empty lists to avoid batch query errors
-                                            Future<JsonArray> failureFuture = ipsToAddAfterCredentialFailure.isEmpty()
-                                                    ? Future.succeededFuture(new JsonArray())
-                                                    : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialFailure);
+                                            // If There is FailedIps then insert them into the discovery result
+                                            List<Tuple> ipsToAdd = new ArrayList<>();
 
-                                            Future<JsonArray> successFuture = ipsToAddAfterCredentialSuccess.isEmpty()
-                                                    ? Future.succeededFuture(new JsonArray())
-                                                    : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialSuccess);
+                                            if (!portCheckFailedIps.isEmpty()) {
+                                                for (var i = 0; i < portCheckFailedIps.size(); i++) {
+                                                    var ip = portCheckFailedIps.getJsonObject(i).getString("ip");
 
-                                            return Future.join(failureFuture, successFuture);
-                                        }));
-                            })
-                            // Step 5: Get complete discovery with credentials
-                            .compose(v -> DbEngine.execute(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add("COMPLETED")))
-                            // Step 6 : Get discovery with result
-                            .compose(v -> DbEngine.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id))
-                                    .onSuccess(response -> HttpResponse.sendSuccess(ctx, 200, "Discovery run successfully", response))
-                                    .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage())));
+                                                    var message = portCheckFailedIps.getJsonObject(i).getString("message");
 
+                                                    ipsToAdd.add(Tuple.of(id, null, ip, message, "FAILED"));
+                                                }
+
+                                                return DbEngine
+                                                        .execute(Queries.Discovery.INSERT_RESULT, ipsToAdd)
+                                                        .compose(v2 -> Future.succeededFuture(portCheckPassedIps));
+                                            } else {
+                                                return Future.succeededFuture(portCheckPassedIps);
+                                            }
+                                        })
+                                        .compose(portCheckPassedIps ->
+                                        {
+                                            // Step 3: Credentials Check
+
+                                            // Get Ips
+                                            var ipsToCheckForCredentials = new JsonArray();
+
+                                            for (var i = 0; i < portCheckPassedIps.size(); i++) {
+                                                ipsToCheckForCredentials.add(portCheckPassedIps.getString(i));
+                                            }
+
+                                            // Get Credentials
+                                            var credentialsToCheck = discoveryWithCredentials.getJsonObject(0).getJsonArray(Fields.Discovery.CREDENTIAL_JSON);
+
+                                            return PluginManager
+                                                    .runDiscovery(id, ipsToCheckForCredentials, port, credentialsToCheck)
+                                                    .compose((credentialCheckResults ->
+                                                    {
+                                                        var credentialCheckPassedResult = new JsonArray();
+
+                                                        var credentialCheckFailedResult = new JsonArray();
+
+                                                        for (var i = 0; i < credentialCheckResults.size(); i++) {
+                                                            var status = credentialCheckResults.getJsonObject(i).getBoolean("success");
+
+                                                            if (status) {
+                                                                credentialCheckPassedResult.add(credentialCheckResults.getJsonObject(i));
+                                                            } else {
+                                                                credentialCheckFailedResult.add(credentialCheckResults.getJsonObject(i));
+                                                            }
+                                                        }
+
+                                                        // Handle failed credential checks
+                                                        var ipsToAddAfterCredentialFailure = new ArrayList<Tuple>();
+
+                                                        if (!credentialCheckFailedResult.isEmpty()) {
+                                                            for (var i = 0; i < credentialCheckFailedResult.size(); i++) {
+                                                                var ip = credentialCheckFailedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.IP);
+
+                                                                var message = credentialCheckFailedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.MESSAGE);
+
+                                                                ipsToAddAfterCredentialFailure.add(Tuple.of(id, null, ip, message, "FAILED"));
+                                                            }
+                                                        }
+
+                                                        // Handle successful credential checks
+                                                        var ipsToAddAfterCredentialSuccess = new ArrayList<Tuple>();
+
+                                                        if (!credentialCheckPassedResult.isEmpty()) {
+                                                            for (var i = 0; i < credentialCheckPassedResult.size(); i++) {
+                                                                var ip = credentialCheckPassedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.IP);
+
+                                                                var message = credentialCheckPassedResult.getJsonObject(i).getString(Fields.PluginDiscoveryResponse.MESSAGE);
+
+                                                                var credential = credentialCheckPassedResult.getJsonObject(i).getJsonObject(Fields.PluginDiscoveryResponse.CREDENTIALS).getInteger(Fields.Credential.ID);
+
+                                                                ipsToAddAfterCredentialSuccess.add(Tuple.of(id, credential, ip, message, "COMPLETED"));
+                                                            }
+                                                        }
+
+                                                        // Handle empty lists to avoid batch query errors
+                                                        Future<JsonArray> failureFuture = ipsToAddAfterCredentialFailure.isEmpty()
+                                                                ? Future.succeededFuture(new JsonArray())
+                                                                : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialFailure);
+
+                                                        Future<JsonArray> successFuture = ipsToAddAfterCredentialSuccess.isEmpty()
+                                                                ? Future.succeededFuture(new JsonArray())
+                                                                : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialSuccess);
+
+                                                        return Future.join(failureFuture, successFuture);
+                                                    }));
+                                        })
+                                        // Step 5: Get complete discovery with credentials
+                                        .compose(v2 -> DbEngine.execute(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add("COMPLETED")))
+                                        // Step 6 : Get discovery with result
+                                        .compose(v2 -> DbEngine.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id))
+                                                .onSuccess(response -> HttpResponse.sendSuccess(ctx, 200, "Discovery run successfully", response))
+                                                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage())));
+
+                                return Future.succeededFuture();
+                            });
                     return Future.succeededFuture();
-
                 })
                 .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
     }
