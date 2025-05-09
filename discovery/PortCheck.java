@@ -3,14 +3,15 @@ package org.nms.discovery;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetSocket;
 import org.nms.App;
+import org.nms.ConsoleLogger;
 
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,82 +20,138 @@ public class PortCheck
 
     public static Future<JsonArray> checkPorts(JsonArray ips, int port)
     {
-
         Promise<JsonArray> allDone = Promise.promise();
-
         JsonArray results = new JsonArray();
-
         List<Future> futures = new ArrayList<>();
 
-        for (var ip : ips)
+        if (ips == null || ips.isEmpty())
         {
-            // Create a promise for each IP check
-            Promise<JsonObject> checkPromise = Promise.promise();
-            futures.add(checkPromise.future());
-
-            JsonObject result = new JsonObject().put("ip", ip).put("port", port);
-
-            // Create NetClient with configuration
-            NetClient client = App.vertx.createNetClient(new NetClientOptions()
-                    .setConnectTimeout(2000)  // 2 second timeout
-                    .setReconnectAttempts(0)); // No reconnection attempts
-
-            // Attempt connection
-            client.connect(port, (String) ip, ar ->
-            {
-                if (ar.succeeded()) {
-                    // Connection successful - port is open
-                    NetSocket socket = ar.result();
-
-                    result.put("message", "Port " + port + " is open on " + ip);
-                    result.put("success", true);
-
-                    socket.close();
-                }
-                else
-                {
-                    // Connection failed - port is closed or unreachable
-                    String errorMessage = ar.cause().getMessage();
-
-                    if (errorMessage.contains("Connection refused"))
-                    {
-                        result.put("message", "Port " + port + " is closed on " + ip);
-                    }
-                    else if (errorMessage.contains("timed out"))
-                    {
-                        result.put("message", "Port " + port + " connection timed out on " + ip);
-                    }
-                    else
-                    {
-                        result.put("message", errorMessage);
-                    }
-
-                    result.put("success", false);
-                }
-
-                // Add the result to our array
-                results.add(result);
-
-                // Complete this IP's promise
-                checkPromise.complete(result);
-
-                // Always close the client to release resources
-                client.close();
-            });
+            ConsoleLogger.warn("Empty IP list provided for port check");
+            allDone.complete(results);
+            return allDone.future();
         }
 
-        // When all futures complete, resolve the main promise with all results
-        CompositeFuture.all(new ArrayList<>(futures))
-                .onComplete(ar ->
+        if (port < 1 || port > 65535)
+        {
+            ConsoleLogger.error("Invalid port number: " + port);
+            allDone.fail(new IllegalArgumentException("Port must be between 1 and 65535"));
+            return allDone.future();
+        }
+
+        try
+        {
+            for (Object ipObj : ips)
+            {
+                if (!(ipObj instanceof String))
                 {
-                    if (ar.succeeded()) {
-                        allDone.complete(results);
-                    }
-                    else
+                    ConsoleLogger.warn("Non-string IP address found, skipping: " + ipObj);
+                    continue;
+                }
+
+                String ip = (String) ipObj;
+
+                if (ip.trim().isEmpty())
+                {
+                    ConsoleLogger.warn("Empty IP address found, skipping");
+                    continue;
+                }
+
+                Promise<JsonObject> checkPromise = Promise.promise();
+                futures.add(checkPromise.future());
+
+                JsonObject result = new JsonObject().put("ip", ip).put("port", port);
+
+                try
+                {
+                    NetClient client = App.vertx.createNetClient(new NetClientOptions()
+                            .setConnectTimeout(2000)
+                            .setReconnectAttempts(0));
+
+                    client.connect(port, ip, ar ->
                     {
-                        allDone.fail(ar.cause());
-                    }
-                });
+                        try
+                        {
+                            if (ar.succeeded())
+                            {
+                                NetSocket socket = ar.result();
+                                result.put("message", "Port " + port + " is open on " + ip);
+                                result.put("success", true);
+                                socket.close();
+                            }
+                            else
+                            {
+                                Throwable cause = ar.cause();
+                                String errorMessage = cause != null ? cause.getMessage() : "Unknown error";
+
+                                if (errorMessage.contains("Connection refused"))
+                                {
+                                    result.put("message", "Port " + port + " is closed on " + ip);
+                                }
+                                else if (errorMessage.contains("timed out"))
+                                {
+                                    result.put("message", "Port " + port + " connection timed out on " + ip);
+                                }
+                                else if (cause instanceof UnknownHostException)
+                                {
+                                    result.put("message", "Unknown host: " + ip);
+                                }
+                                else
+                                {
+                                    result.put("message", errorMessage);
+                                }
+                                result.put("success", false);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            ConsoleLogger.error("Error handling connection result for " + ip + ":" + port + " - " + e.getMessage());
+                            result.put("message", "Error during connection handling: " + e.getMessage());
+                            result.put("success", false);
+                        }
+                        finally
+                        {
+                            results.add(result);
+                            checkPromise.complete(result);
+                            try
+                            {
+                                client.close();
+                            }
+                            catch (Exception e)
+                            {
+                                ConsoleLogger.error("Error closing NetClient: " + e.getMessage());
+                            }
+                        }
+                    });
+                }
+                catch (Exception e)
+                {
+                    ConsoleLogger.error("Failed to create or connect client for " + ip + ":" + port + " - " + e.getMessage());
+                    result.put("message", "Error creating connection: " + e.getMessage());
+                    result.put("success", false);
+                    results.add(result);
+                    checkPromise.complete(result);
+                }
+            }
+
+            CompositeFuture.all(new ArrayList<>(futures))
+                    .onComplete(ar ->
+                    {
+                        if (ar.succeeded())
+                        {
+                            allDone.complete(results);
+                        }
+                        else
+                        {
+                            ConsoleLogger.error("Error in port check batch operation: " + ar.cause().getMessage());
+                            allDone.complete(results);
+                        }
+                    });
+        }
+        catch (Exception e)
+        {
+            ConsoleLogger.error("Unexpected error in checkPorts: " + e.getMessage());
+            allDone.fail(e);
+        }
 
         return allDone.future();
     }

@@ -18,23 +18,30 @@ public class App
     public static void main( String[] args )
     {
 
-        Future.join(List.of(
-                DbEngine.execute(Queries.User.CREATE_SCHEMA),
-                DbEngine.execute(Queries.Credential.CREATE_SCHEMA),
-                DbEngine.execute(Queries.Discovery.CREATE_SCHEMA),
-                DbEngine.execute(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                DbEngine.execute(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                DbEngine.execute(Queries.Monitor.CREATE_SCHEMA),
-                DbEngine.execute(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                DbEngine.execute(Queries.PollingResult.CREATE_SCHEMA)
-        ))
-                // ===== Start Scheduler =====
-                .compose(v -> vertx.deployVerticle(new Scheduler()))
-                // ===== Start Http Server =====
-                .compose(v -> vertx.deployVerticle(new Server()))
-                // ===== Success =====
-                .onSuccess(v -> ConsoleLogger.info("✅ Successfully Started NMS Application"))
-                // ===== Failure =====
-                .onFailure(err ->  ConsoleLogger.error("❌ Failed to start NMS Application " + err.getMessage()));
+        try
+        {
+            Future.join(List.of(
+                            DbEngine.execute(Queries.User.CREATE_SCHEMA),
+                            DbEngine.execute(Queries.Credential.CREATE_SCHEMA),
+                            DbEngine.execute(Queries.Discovery.CREATE_SCHEMA),
+                            DbEngine.execute(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
+                            DbEngine.execute(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
+                            DbEngine.execute(Queries.Monitor.CREATE_SCHEMA),
+                            DbEngine.execute(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
+                            DbEngine.execute(Queries.PollingResult.CREATE_SCHEMA)
+                    ))
+                    // ===== Start Scheduler =====
+                    .compose(v -> vertx.deployVerticle(new Scheduler()))
+                    // ===== Start Http Server =====
+                    .compose(v -> vertx.deployVerticle(new Server()))
+                    // ===== Success =====
+                    .onSuccess(v -> ConsoleLogger.info("✅ Successfully Started NMS Application"))
+                    // ===== Failure =====
+                    .onFailure(err -> ConsoleLogger.error("❌ Failed to start NMS Application " + err.getMessage()));
+        }
+        catch (Exception e)
+        {
+            ConsoleLogger.error("❌ Error Starting Application");
+        }
     }
 }

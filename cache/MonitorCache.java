@@ -24,16 +24,23 @@ public class MonitorCache
     public static Future<JsonArray> populate()
     {
 
-        return DbEngine.execute(Queries.Monitor.GET_ALL)
-                .onSuccess(monitorArray ->
-                {
-                    if(monitorArray.isEmpty())
+        try {
+            return DbEngine.execute(Queries.Monitor.GET_ALL)
+                    .onSuccess(monitorArray ->
                     {
-                        return;
-                    }
+                        if (monitorArray.isEmpty()) {
+                            return;
+                        }
 
-                    insertMonitorArray(monitorArray);
-                });
+                        insertMonitorArray(monitorArray);
+                    });
+        }
+        catch (Exception e)
+        {
+            ConsoleLogger.error("Error Populating Cache");
+
+            return Future.failedFuture("Error Populating Cache");
+        }
     }
 
     // ===== Adds monitored Objects into cache =====
@@ -47,23 +54,29 @@ public class MonitorCache
             // Step-2 : Iterate Over All Metric Group Of Particular monitor
             for(var k = 0; k < monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).size(); k++)
             {
-                var metricObject = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k);
+                try {
+                    var metricObject = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k);
 
-                var value = new JsonObject()
-                        .put(Fields.MonitorCache.ID, metricObject.getInteger(Fields.MetricGroup.ID))
-                        .put(Fields.MonitorCache.MONITOR_ID, monitorObject.getInteger(Fields.Monitor.ID))
-                        .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Monitor.PORT)))
-                        .put(Fields.MonitorCache.CREDENTIALS, monitorObject.getJsonObject(Monitor.CREDENTIAL_JSON).copy())
-                        .put(Fields.MonitorCache.IP, monitorObject.getString(Fields.Monitor.IP))
-                        .put(Fields.MonitorCache.NAME, metricObject.getString(Fields.MetricGroup.NAME))
-                        .put(Fields.MonitorCache.POLLING_INTERVAL, metricObject.getInteger(Fields.MetricGroup.POLLING_INTERVAL))
-                        .put(Fields.MonitorCache.IS_ENABLED, metricObject.getBoolean(Fields.MetricGroup.IS_ENABLED));
+                    var value = new JsonObject()
+                            .put(Fields.MonitorCache.ID, metricObject.getInteger(Fields.MetricGroup.ID))
+                            .put(Fields.MonitorCache.MONITOR_ID, monitorObject.getInteger(Fields.Monitor.ID))
+                            .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Monitor.PORT)))
+                            .put(Fields.MonitorCache.CREDENTIALS, monitorObject.getJsonObject(Monitor.CREDENTIAL_JSON).copy())
+                            .put(Fields.MonitorCache.IP, monitorObject.getString(Fields.Monitor.IP))
+                            .put(Fields.MonitorCache.NAME, metricObject.getString(Fields.MetricGroup.NAME))
+                            .put(Fields.MonitorCache.POLLING_INTERVAL, metricObject.getInteger(Fields.MetricGroup.POLLING_INTERVAL))
+                            .put(Fields.MonitorCache.IS_ENABLED, metricObject.getBoolean(Fields.MetricGroup.IS_ENABLED));
 
-                var key = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k).getInteger(Fields.MetricGroup.ID);
+                    var key = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k).getInteger(Fields.MetricGroup.ID);
 
-                referencedMetricGroups.put(key, value.copy());
+                    referencedMetricGroups.put(key, value.copy());
 
-                cachedMetricGroups.put(key, value.copy());
+                    cachedMetricGroups.put(key, value.copy());
+                }
+                catch (Exception e)
+                {
+                    ConsoleLogger.warn("Error Inserting Some Monitor in cache");
+                }
             }
         }
 
@@ -76,35 +89,39 @@ public class MonitorCache
 
         for(var i = 0; i < metricGroups.size(); i++)
         {
-            var metricGroup = metricGroups.getJsonObject(i);
+            try {
+                var metricGroup = metricGroups.getJsonObject(i);
 
-            var key =  metricGroup.getInteger(Fields.MonitorCache.ID);
+                var key = metricGroup.getInteger(Fields.MonitorCache.ID);
 
-            var updatedValue = referencedMetricGroups.get(key).copy();
+                var updatedValue = referencedMetricGroups.get(key).copy();
 
-            if(metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL) != null)
-            {
-                updatedValue.put(Fields.MonitorCache.POLLING_INTERVAL, metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL));
+                if (metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL) != null) {
+                    updatedValue.put(Fields.MonitorCache.POLLING_INTERVAL, metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL));
+                }
+
+                if (metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED) != null && !metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED)) {
+                    referencedMetricGroups.remove(key);
+
+                    cachedMetricGroups.remove(key);
+                }
+
+                referencedMetricGroups
+                        .put(
+                                key,
+                                updatedValue
+                        );
+
+                cachedMetricGroups
+                        .put(
+                                key,
+                                updatedValue
+                        );
             }
-
-            if(metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED) != null && !metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED))
+            catch (Exception e)
             {
-                referencedMetricGroups.remove(key);
-
-                cachedMetricGroups.remove(key);
+                ConsoleLogger.warn("Error Updating Some Monitor In Cache");
             }
-
-            referencedMetricGroups
-                    .put(
-                            key,
-                            updatedValue
-                    );
-
-            cachedMetricGroups
-                    .put(
-                            key,
-                            updatedValue
-                    );
         }
 
         ConsoleLogger.info("➖ Updated " + metricGroups.size() + " Entries From Cache");

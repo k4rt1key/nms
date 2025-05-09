@@ -1,46 +1,101 @@
 package org.nms.discovery;
 
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.nms.App;
 import org.nms.ConsoleLogger;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.concurrent.TimeUnit;
 
 public class PingCheck
 {
+    private static final int TIMEOUT_SECONDS = 30; // Process timeout
+
     public static Future<JsonArray> pingIps(JsonArray ipArray)
     {
-        return App.vertx.executeBlocking(()->{
-
-            ConsoleLogger.info("Recieved Pinging Request for " + ipArray);
-
+        return App.vertx.executeBlocking(promise ->
+        {
             JsonArray results = new JsonArray();
+            Process process = null;
+            BufferedReader reader = null;
 
-            if (ipArray == null || ipArray.isEmpty())
+            try
             {
-                return results;
-            }
+                ConsoleLogger.info("Received Pinging Request for " + ipArray);
 
-            try {
+                // Input validation
+                if (ipArray == null || ipArray.isEmpty())
+                {
+                    ConsoleLogger.warn("Empty IP array provided for ping check");
+                    promise.complete(results);
+                    return;
+                }
+
+                // Validate IP addresses and collect valid ones
+                JsonArray validIps = new JsonArray();
+                for (int i = 0; i < ipArray.size(); i++)
+                {
+                    Object ipObj = ipArray.getValue(i);
+
+                    if (!(ipObj instanceof String))
+                    {
+                        ConsoleLogger.warn("Non-string IP address found, skipping: " + ipObj);
+                        results.add(createErrorResult(String.valueOf(ipObj), "Invalid IP format"));
+                        continue;
+                    }
+
+                    String ip = (String) ipObj;
+
+                    if (ip.trim().isEmpty())
+                    {
+                        ConsoleLogger.warn("Empty IP address found, skipping");
+                        results.add(createErrorResult("", "Empty IP address"));
+                        continue;
+                    }
+
+                    validIps.add(ip);
+                }
+
+                if (validIps.isEmpty())
+                {
+                    ConsoleLogger.warn("No valid IP addresses found");
+                    promise.complete(results);
+                    return;
+                }
+
                 // Step - 1 : Prepare fping command [ fping -c3 ip1 ip2 ... ]
-                String[] command = new String[ipArray.size() + 2];
+                String[] command = new String[validIps.size() + 2];
                 command[0] = "fping";
                 command[1] = "-c3";
 
-                for (int i = 0; i < ipArray.size(); i++)
+                for (int i = 0; i < validIps.size(); i++)
                 {
-                    command[i + 2] = ipArray.getString(i);
+                    command[i + 2] = validIps.getString(i);
                 }
 
                 ProcessBuilder pb = new ProcessBuilder(command);
                 pb.redirectErrorStream(true);
-                Process process = pb.start();
+                process = pb.start();
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                // Set up a timeout for the process
+                boolean completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+                if (!completed)
+                {
+                    process.destroyForcibly();
+                    throw new TimeoutException("fping process timed out after " + TIMEOUT_SECONDS + " seconds");
+                }
+
+                reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
                 String line;
+
+                // Track processed IPs to identify any missing results
+                JsonArray processedIps = new JsonArray();
 
                 while ((line = reader.readLine()) != null)
                 {
@@ -50,6 +105,7 @@ public class PingCheck
 
                     String ip = parts[0].trim();
                     String stats = parts[1].trim();
+                    processedIps.add(ip);
 
                     JsonObject result = new JsonObject().put("ip", ip);
 
@@ -60,19 +116,7 @@ public class PingCheck
                     }
                     else
                     {
-                        String avg = "";
-                        if (stats.contains("min/avg/max"))
-                        {
-                            String[] latencyParts = stats.split("min/avg/max = ");
-                            if (latencyParts.length == 2)
-                            {
-                                String[] latencyValues = latencyParts[1].split("/");
-                                if (latencyValues.length >= 2)
-                                {
-                                    avg = latencyValues[1] + " ms";
-                                }
-                            }
-                        }
+                        String avg = getString(stats);
                         result.put("message", "Ping check success (avg latency: " + avg + ")");
                         result.put("success", true);
                     }
@@ -80,21 +124,135 @@ public class PingCheck
                     results.add(result);
                 }
 
-                process.waitFor();
+                // Handle any IPs that didn't get processed (no output from fping)
+                for (int i = 0; i < validIps.size(); i++)
+                {
+                    String ip = validIps.getString(i);
+                    if (!processedIps.contains(ip))
+                    {
+                        results.add(createErrorResult(ip, "No response from fping"));
+                    }
+                }
+
+                promise.complete(results);
+            }
+            catch (TimeoutException te)
+            {
+                ConsoleLogger.error("Ping process timed out: " + te.getMessage());
+                handleErrorForAllIps(ipArray, results, "Ping process timed out after " + TIMEOUT_SECONDS + " seconds");
+                promise.complete(results);
+            }
+            catch (IOException ioe)
+            {
+                ConsoleLogger.error("IO Error during ping: " + ioe.getMessage());
+                handleErrorForAllIps(ipArray, results, "IO Error: " + ioe.getMessage());
+                promise.complete(results);
+            }
+            catch (InterruptedException ie)
+            {
+                Thread.currentThread().interrupt(); // Reset interrupted status
+                ConsoleLogger.error("Ping process interrupted: " + ie.getMessage());
+                handleErrorForAllIps(ipArray, results, "Process interrupted");
+                promise.complete(results);
             }
             catch (Exception e)
             {
-                for (int i = 0; i < ipArray.size(); i++)
-                {
-                    results.add(new JsonObject()
-                            .put("ip", ipArray.getString(i))
-                            .put("message", "Something Went Wrong"));
+                ConsoleLogger.error("Error pinging IPs: " + e.getMessage());
+                handleErrorForAllIps(ipArray, results, "Error: " + e.getMessage());
+                promise.complete(results);
+            }
+            finally
+            {
+                // Clean up resources
+                closeQuietly(reader);
 
-                    ConsoleLogger.error("Error Pinging Ips => " + e.getMessage());
+                if (process != null && process.isAlive())
+                {
+                    try
+                    {
+                        process.destroyForcibly();
+                    }
+                    catch (Exception e)
+                    {
+                        ConsoleLogger.error("Error destroying ping process: " + e.getMessage());
+                    }
                 }
             }
-
-            return results;
         });
+    }
+
+    private static String getString(String stats) {
+        String avg = "";
+        if (stats.contains("min/avg/max"))
+        {
+            String[] latencyParts = stats.split("min/avg/max = ");
+            if (latencyParts.length == 2)
+            {
+                String[] latencyValues = latencyParts[1].split("/");
+                if (latencyValues.length >= 2)
+                {
+                    avg = latencyValues[1] + " ms";
+                }
+            }
+        }
+        return avg;
+    }
+
+    private static JsonObject createErrorResult(String ip, String message)
+    {
+        return new JsonObject()
+                .put("ip", ip)
+                .put("message", message)
+                .put("success", false);
+    }
+
+    private static void handleErrorForAllIps(JsonArray ipArray, JsonArray results, String errorMessage)
+    {
+        if (ipArray != null)
+        {
+            for (int i = 0; i < ipArray.size(); i++)
+            {
+                String ip = String.valueOf(ipArray.getValue(i));
+                boolean exists = false;
+
+                for (int j = 0; j < results.size(); j++)
+                {
+                    JsonObject result = results.getJsonObject(j);
+                    if (result.getString("ip", "").equals(ip))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                {
+                    results.add(createErrorResult(ip, errorMessage));
+                }
+            }
+        }
+    }
+
+    private static void closeQuietly(AutoCloseable closeable)
+    {
+        if (closeable != null)
+        {
+            try
+            {
+                closeable.close();
+            }
+            catch (Exception e)
+            {
+                ConsoleLogger.error("Error closing resource: " + e.getMessage());
+            }
+        }
+    }
+
+    private static class TimeoutException extends Exception
+    {
+        public TimeoutException(String message)
+        {
+            super(message);
+        }
     }
 }

@@ -8,5 +8,5 @@ public class Config
 
     public static final String JWT_SECRET = "secret";
 
-    public static final String PLUGIN_PATH = "src/main/Plugin/nms-plugin";
+    public static final String PLUGIN_PATH = "src/main/plugin/nms-plugin";
 }
