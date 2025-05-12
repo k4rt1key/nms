@@ -22,7 +22,7 @@ public class DbEngine
                     .execute(Tuple.wrap(params.getList().toArray()))
                     .map(DbEngine::toJsonArray)
                     .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed... \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params" + params.encode()))
-                    .onFailure(err -> ConsoleLogger.error("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
+                    .onFailure(err -> ConsoleLogger.warn("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
         }
         else
         {
@@ -58,7 +58,7 @@ public class DbEngine
                     .executeBatch(params)
                     .map(DbEngine::toJsonArray)
                     .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed... \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]"))))
-                    .onFailure(err -> ConsoleLogger.error("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
+                    .onFailure(err -> ConsoleLogger.warn("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
         }
         else
         {

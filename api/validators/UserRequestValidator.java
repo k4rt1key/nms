@@ -8,7 +8,7 @@ public class UserRequestValidator
 
     public static void getUserByIdRequestValidator(RoutingContext ctx)
     {
-        if(!Utility.validateID(ctx)) {  return; }
+        if(Utility.validateID(ctx)) {  return; }
 
         ctx.next();
     }
@@ -16,18 +16,18 @@ public class UserRequestValidator
     public static void registerRequestValidator(RoutingContext ctx)
     {
 
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, true)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, true)) { return; }
 
         ctx.next();
     }
 
     public static void loginRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, true)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, true)) { return; }
 
         ctx.next();
     }
@@ -35,11 +35,11 @@ public class UserRequestValidator
     public static void updateUserRequestValidator(RoutingContext ctx)
     {
 
-        if(! Utility.validateID(ctx) ) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, false)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{Fields.User.NAME, Fields.User.PASSWORD}, false)) { return; }
 
         ctx.next();
     }
@@ -47,7 +47,7 @@ public class UserRequestValidator
 
     public static void deleteUserRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
         ctx.next();
     }

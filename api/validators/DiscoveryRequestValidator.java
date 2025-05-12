@@ -5,7 +5,6 @@ import org.nms.api.helpers.HttpResponse;
 import org.nms.api.helpers.Ip;
 import org.nms.constants.Fields;
 
-
 public class DiscoveryRequestValidator
 {
 
@@ -17,7 +16,7 @@ public class DiscoveryRequestValidator
 
     public static void getDiscoveryByIdRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
         
         ctx.next();
     }
@@ -25,9 +24,9 @@ public class DiscoveryRequestValidator
     public static void createDiscoveryRequestValidator(RoutingContext ctx)
     {
 
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, true)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, true)) { return; }
 
         var body = ctx.body().asJsonObject();
 
@@ -81,11 +80,11 @@ public class DiscoveryRequestValidator
 
     public static void updateDiscoveryRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, false)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, false)) { return; }
 
         if(! Utility.validatePort(ctx)) { return; }
 
@@ -109,9 +108,9 @@ public class DiscoveryRequestValidator
 
     public static void updateDiscoveryCredentialsRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
         var body = ctx.body().asJsonObject();
 
@@ -165,14 +164,14 @@ public class DiscoveryRequestValidator
 
     public static void runDiscoveryRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
         ctx.next();
     }
 
     public static void deleteDiscoveryRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
         ctx.next();
     }

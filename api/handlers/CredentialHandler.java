@@ -2,8 +2,6 @@ package org.nms.api.handlers;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.App;
-import org.nms.ConsoleLogger;
 import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Queries;
 import org.nms.database.DbEngine;

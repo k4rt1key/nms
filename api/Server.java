@@ -3,7 +3,6 @@ package org.nms.api;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
-import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.KeyStoreOptions;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
@@ -54,7 +53,7 @@ public class Server extends AbstractVerticle
         });
 
         // ===== Configure User Routes =====
-        setupUserRoutes(router, jwtAuth);
+        setupUserRoutes(router);
 
         router.route()
                 .handler(JWTAuthHandler.create(jwtAuth))
@@ -91,7 +90,7 @@ public class Server extends AbstractVerticle
         });
     }
 
-    private void setupUserRoutes(Router router, JWTAuth jwtAuth)
+    private void setupUserRoutes(Router router)
     {
         var userRouter = Router.router(vertx);
 
@@ -99,7 +98,7 @@ public class Server extends AbstractVerticle
                 .handler(UserHandler::getUsers);
 
         userRouter.get("/:id")
-                .handler(JWTAuthHandler.create(jwtAuth))
+                .handler(JWTAuthHandler.create(Server.jwtAuth))
                 .handler(AuthMiddleware::authenticate)
                 .handler(UserRequestValidator::getUserByIdRequestValidator)
                 .handler(UserHandler::getUserById);
@@ -113,13 +112,13 @@ public class Server extends AbstractVerticle
                 .handler(UserHandler::register);
 
         userRouter.patch("/:id")
-                .handler(JWTAuthHandler.create(jwtAuth))
+                .handler(JWTAuthHandler.create(Server.jwtAuth))
                 .handler(AuthMiddleware::authenticate)
                 .handler(UserRequestValidator::updateUserRequestValidator)
                 .handler(UserHandler::updateUser);
 
         userRouter.delete("/:id")
-                .handler(JWTAuthHandler.create(jwtAuth))
+                .handler(JWTAuthHandler.create(Server.jwtAuth))
                 .handler(AuthMiddleware::authenticate)
                 .handler(UserRequestValidator::deleteUserRequestValidator)
                 .handler(UserHandler::deleteUser);

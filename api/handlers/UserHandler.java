@@ -5,13 +5,10 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
-import org.nms.App;
 import org.nms.api.Server;
 import org.nms.api.helpers.HttpResponse;
-import org.nms.constants.Queries;
 import org.nms.database.DbEngine;
 import org.nms.constants.Queries.*;
-import org.nms.api.Server.* ;
 
 public class UserHandler
 {
@@ -155,7 +152,6 @@ public class UserHandler
     public static void deleteUser(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-
 
         // Step - 1 : Check if user exists or not
         DbEngine.execute(User.GET_BY_ID, new JsonArray().add(id))

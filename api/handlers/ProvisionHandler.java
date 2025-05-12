@@ -85,9 +85,8 @@ public class ProvisionHandler
 
                     if(results != null && !results.isEmpty())
                     {
-                        for(int j = 0; j < ips.size(); j++)
+                        for(var j = 0; j < ips.size(); j++)
                         {
-
                             addMonitorsFuture.add(DbEngine.execute(Queries.Monitor.INSERT, new JsonArray().add(discovery_id).add(ips.getString(j))));
 
                             ConsoleLogger.debug(ips.getString(j));

@@ -1,7 +1,6 @@
 package org.nms.api.handlers;
 
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
@@ -328,9 +327,6 @@ public class DiscoveryHandler
                         HttpResponse.sendFailure(ctx, 404, "Discovery not found");
                         return Future.failedFuture(new Exception("Discovery not found"));
                     }
-
-                    var isReady = Promise.promise();
-                    var runDiscovery = isReady.future();
 
                     DbEngine
                             .execute(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id))

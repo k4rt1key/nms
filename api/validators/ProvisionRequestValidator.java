@@ -18,18 +18,18 @@ public class ProvisionRequestValidator
 
     public static void getProvisionByIdRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
         ctx.next();
     }
 
     public static void createProvisionRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{INPUT_IPS_FIELD, INPUT_DISCOVERY_FIELD}, true)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{INPUT_IPS_FIELD, INPUT_DISCOVERY_FIELD}, true)) { return; }
 
         var body = ctx.body().asJsonObject();
 
@@ -72,11 +72,11 @@ public class ProvisionRequestValidator
 
     public static void updateProvisionRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
 
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
-        if(! Utility.validateInputFields(ctx, new String[]{INPUT_METRICS_FIELD}, true)) { return; }
+        if(Utility.validateInputFields(ctx, new String[]{INPUT_METRICS_FIELD}, true)) { return; }
 
         var body = ctx.body().asJsonObject();
 
@@ -120,9 +120,9 @@ public class ProvisionRequestValidator
 
     public static void deleteProvisionRequestValidator(RoutingContext ctx)
     {
-        if(! Utility.validateBody(ctx)) { return; }
+        if(Utility.validateBody(ctx)) { return; }
         
-        if(! Utility.validateID(ctx)) { return; }
+        if(Utility.validateID(ctx)) { return; }
 
         ctx.next();
     }

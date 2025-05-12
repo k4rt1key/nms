@@ -17,7 +17,7 @@ public class Utility
         if (id == null || id.isEmpty())
         {
             HttpResponse.sendFailure(ctx, 400,"Missing or empty 'id' parameter");
-            return false;
+            return true;
         }
 
         try
@@ -27,10 +27,10 @@ public class Utility
         catch (IllegalArgumentException e)
         {
             HttpResponse.sendFailure(ctx, 400,"Invalid 'id' parameter. Must be a positive integer");
-            return false;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     public static boolean validateBody(RoutingContext ctx)
@@ -42,16 +42,16 @@ public class Utility
             if (body == null || body.isEmpty())
             {
                 HttpResponse.sendFailure(ctx, 400, "Missing or empty request body");
-                return false;
+                return true;
             }
         }
         catch (Exception e)
         {
             HttpResponse.sendFailure(ctx, 400, "Invalid Json");
-            return false;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     public static boolean validateInputFields(RoutingContext ctx, String[] requiredFields, boolean isAllRequired)
@@ -82,23 +82,23 @@ public class Utility
             if (isAllRequired && !missingFields.isEmpty())
             {
                 HttpResponse.sendFailure(ctx, 400, "Missing required fields: " + missingFields);
-                return false;
+                return true;
             }
 
             if (!isAllRequired && isAllMissing)
             {
                 HttpResponse.sendFailure(ctx, 400, "Missing required fields, Provide any of " + missingFields);
-                return false;
+                return true;
             }
 
         }
         catch (Exception e)
         {
             HttpResponse.sendFailure(ctx, 400, "Invalid Json");
-            return false;
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     public static boolean validatePort(RoutingContext ctx)
