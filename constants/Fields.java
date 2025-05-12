@@ -145,7 +145,7 @@ public class Fields
 
     public static class PluginPollingRequest
     {
-        public static final String DISCOVERY = "polling";
+        public static final String POLLING = "polling";
 
         public static final String TYPE = "type";
 
@@ -185,10 +185,22 @@ public class Fields
 
         public static final String PORT = "port";
 
-        public static final String CREDENTIALS = "credentials";
+        public static final String CREDENTIAL = "credentials";
 
         public static final String POLLING_INTERVAL = "polling_interval";
 
         public static final String IS_ENABLED = "is_enabled";
+    }
+
+    public static class EventBus
+    {
+        public static final String POLLING_ADDRESS = "plugin.polling";
+
+        public static final String PING_CHECK_ADDRESS = "discovery.ping";
+
+        public static final String PORT_CHECK_ADDRESS = "discovery.port";
+
+        public static final String DISCOVERY_ADDRESS = "plugin.discovery";
+
     }
 }

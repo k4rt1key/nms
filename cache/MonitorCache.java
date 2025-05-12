@@ -6,207 +6,179 @@ import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.nms.ConsoleLogger;
 import org.nms.constants.Fields;
-import org.nms.constants.Fields.*;
 import org.nms.constants.Queries;
 import org.nms.database.DbEngine;
 
 public class MonitorCache
 {
     private static final ConcurrentHashMap<Integer, JsonObject> cachedMetricGroups = new ConcurrentHashMap<>();
-
     private static final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();
 
-    // ===== Populates Cache From DB =====
+    // Populate cache from database
     public static Future<JsonArray> populate()
     {
-
-        try {
+        try
+        {
             return DbEngine.execute(Queries.Monitor.GET_ALL)
                     .onSuccess(monitorArray ->
                     {
-                        if (monitorArray.isEmpty()) {
-                            return;
+                        if (!monitorArray.isEmpty())
+                        {
+                            insertMonitorArray(monitorArray);
                         }
-
-                        insertMonitorArray(monitorArray);
                     });
         }
         catch (Exception e)
         {
             ConsoleLogger.error("Error Populating Cache");
-
             return Future.failedFuture("Error Populating Cache");
         }
     }
 
-    // ===== Adds monitored Objects into cache =====
+    // Insert monitors into cache
     public static void insertMonitorArray(JsonArray monitorArray)
     {
-        // Step-1 : Iterate Over All monitors
-        for(var i = 0; i < monitorArray.size(); i++)
+        for (var i = 0; i < monitorArray.size(); i++)
         {
             var monitorObject = monitorArray.getJsonObject(i);
 
-            // Step-2 : Iterate Over All Metric Group Of Particular monitor
-            for(var k = 0; k < monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).size(); k++)
+            for (var k = 0; k < monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).size(); k++)
             {
-                try {
-                    var metricObject = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k);
+                try
+                {
+                    var metricObject = monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).getJsonObject(k);
 
                     var value = new JsonObject()
                             .put(Fields.MonitorCache.ID, metricObject.getInteger(Fields.MetricGroup.ID))
                             .put(Fields.MonitorCache.MONITOR_ID, monitorObject.getInteger(Fields.Monitor.ID))
-                            .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Fields.Monitor.PORT)))
-                            .put(Fields.MonitorCache.CREDENTIALS, monitorObject.getJsonObject(Fields.Monitor.CREDENTIAL_JSON).copy())
                             .put(Fields.MonitorCache.IP, monitorObject.getString(Fields.Monitor.IP))
+                            .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Fields.Monitor.PORT)))
+                            .put(Fields.MonitorCache.CREDENTIAL, monitorObject.getJsonObject(Fields.Monitor.CREDENTIAL_JSON).copy())
                             .put(Fields.MonitorCache.NAME, metricObject.getString(Fields.MetricGroup.NAME))
                             .put(Fields.MonitorCache.POLLING_INTERVAL, metricObject.getInteger(Fields.MetricGroup.POLLING_INTERVAL))
                             .put(Fields.MonitorCache.IS_ENABLED, metricObject.getBoolean(Fields.MetricGroup.IS_ENABLED));
 
-                    var key = monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).getJsonObject(k).getInteger(Fields.MetricGroup.ID);
+                    var key = metricObject.getInteger(Fields.MetricGroup.ID);
 
                     referencedMetricGroups.put(key, value.copy());
-
                     cachedMetricGroups.put(key, value.copy());
                 }
                 catch (Exception e)
                 {
-                    ConsoleLogger.warn("Error Inserting Some Monitor in cache");
+                    ConsoleLogger.warn("Error Inserting Monitor in cache: " + e.getMessage());
                 }
             }
         }
 
-        ConsoleLogger.info("\uD83D\uDCE9 Inserted " + monitorArray.size() + " monitors Into Cache, Now Total Number Of Entry In Cache Is " + cachedMetricGroups.size());
+        ConsoleLogger.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
     }
 
-    // ===== Updates MetricGroup present into cache =====
+    // Update metric groups in cache
     public static void updateMetricGroups(JsonArray metricGroups)
     {
-
-        for(var i = 0; i < metricGroups.size(); i++)
+        for (var i = 0; i < metricGroups.size(); i++)
         {
-            try {
+            try
+            {
                 var metricGroup = metricGroups.getJsonObject(i);
 
                 var key = metricGroup.getInteger(Fields.MonitorCache.ID);
 
                 var updatedValue = referencedMetricGroups.get(key).copy();
 
-                if (metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL) != null) {
-                    updatedValue.put(Fields.MonitorCache.POLLING_INTERVAL, metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL));
+                // Update polling interval if provided
+                if (metricGroup.getValue(Fields.MonitorCache.POLLING_INTERVAL) != null)
+                {
+                    updatedValue.put(Fields.MonitorCache.POLLING_INTERVAL,
+                            metricGroup.getInteger(Fields.MonitorCache.POLLING_INTERVAL));
                 }
 
-                if (metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED) != null && !metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED)) {
+                // Remove if disabled
+                if (metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED) != null
+                        && !metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED))
+                {
                     referencedMetricGroups.remove(key);
-
                     cachedMetricGroups.remove(key);
+                    continue;
                 }
 
-                referencedMetricGroups
-                        .put(
-                                key,
-                                updatedValue
-                        );
-
-                cachedMetricGroups
-                        .put(
-                                key,
-                                updatedValue
-                        );
+                // Update both caches
+                referencedMetricGroups.put(key, updatedValue);
+                cachedMetricGroups.put(key, updatedValue);
             }
             catch (Exception e)
             {
-                ConsoleLogger.warn("Error Updating Some Monitor In Cache");
+                ConsoleLogger.warn("Error Updating Monitor in Cache: " + e.getMessage());
             }
         }
 
-        ConsoleLogger.info("➖ Updated " + metricGroups.size() + " Entries From Cache");
+        ConsoleLogger.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
     }
 
-    // ===== Deletes MetricGroup Present Into Cache =====
+    // Delete metric groups for a specific monitor
     public static void deleteMetricGroups(Integer monitorId)
     {
-        var total = new AtomicInteger();
+        var removedCount = new ArrayList<Integer>();
 
-        referencedMetricGroups.forEach((key, value)->
+        referencedMetricGroups.entrySet().removeIf(entry ->
         {
-            if(value.getInteger(Fields.MonitorCache.MONITOR_ID).equals(monitorId))
+            if (entry.getValue().getInteger(Fields.MonitorCache.MONITOR_ID).equals(monitorId))
             {
-                referencedMetricGroups.remove(key);
-
-                cachedMetricGroups.remove(key);
-
-                total.incrementAndGet();
+                cachedMetricGroups.remove(entry.getKey());
+                removedCount.add(entry.getKey());
+                return true;
             }
+            return false;
         });
 
-        ConsoleLogger.info("➖ Removed " + total.get() + " Entries From Cache");
+        ConsoleLogger.info("➖ Removed " + removedCount.size() + " Entries from Cache");
     }
 
-    /**
-     * Gets Metric Groups That Have Timed Out And Need Polling
-     * Returns Timed-Out Metric Groups And Resets Their Polling Intervals From Reference Values
-     */
-    public static List<JsonObject> getTimedOutMetricGroups()
+    // Decrement intervals and collect timed-out metric groups
+    public static List<JsonObject> decrementAndCollectTimedOutMetricGroups(int interval)
     {
         var timedOutMetricGroups = new ArrayList<JsonObject>();
 
-        // Iterate Over All Metric Groups And Decrement Interval
-        cachedMetricGroups.forEach((key, value) ->
+        // Collect and process timed-out groups in a single pass
+        cachedMetricGroups.entrySet().removeIf(entry ->
         {
-            var pollingInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
+            var value = entry.getValue();
+            var currentInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
+            var updatedInterval = Math.max(0, currentInterval - interval);
 
-            if (pollingInterval <= 0)
+            // If interval reaches 0, it's timed out
+            if (updatedInterval == 0)
             {
-                // Found Timed Out Metric Group
-                timedOutMetricGroups.add(value.copy());
+                // Create a copy of the timed-out group
+                var timedOutGroup = value.copy();
 
-                var updated = value.copy().put(Fields.MonitorCache.POLLING_INTERVAL, referencedMetricGroups.get(key).getInteger(Fields.MonitorCache.POLLING_INTERVAL));
+                // Reset interval to original value from reference
+                var originalIntervalEntry = referencedMetricGroups
+                        .get(entry.getKey())
+                        .getInteger(Fields.MonitorCache.POLLING_INTERVAL);
 
-                // Reset Interval
-                cachedMetricGroups.put(
-                        key,
-                        updated.copy()
-                );
+                timedOutGroup.put(Fields.MonitorCache.POLLING_INTERVAL, originalIntervalEntry);
+
+                // Add to timed-out groups
+                timedOutMetricGroups.add(timedOutGroup);
+
+                // Update the cached value with reset interval
+                value.put(Fields.MonitorCache.POLLING_INTERVAL, originalIntervalEntry);
             }
+            else
+            {
+                // Update interval in cached value
+                value.put(Fields.MonitorCache.POLLING_INTERVAL, updatedInterval);
+            }
+
+            // return false to keep all entries
+            return false;
         });
-
-        timedOutMetricGroups.forEach((timedOutMetricGroup ->
-        {
-            var key = timedOutMetricGroup.getInteger(Fields.MonitorCache.ID);
-
-            var updated = timedOutMetricGroup.copy().put(Fields.MonitorCache.POLLING_INTERVAL, referencedMetricGroups.get(key).getInteger(Fields.MonitorCache.POLLING_INTERVAL));
-
-            // Reset Interval
-            cachedMetricGroups.put(
-                    key,
-                    updated.copy()
-            );
-        }));
 
         ConsoleLogger.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
-
         return timedOutMetricGroups;
     }
-
-    // ===== Decrement Interval Of All Entries =====
-    public static void decrementMetricGroupInterval(int interval)
-    {
-        cachedMetricGroups.forEach((key, value) ->
-        {
-            var currentInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
-
-            var updatedInterval =  Math.max(0, currentInterval - interval);
-
-            cachedMetricGroups.put(
-                key,
-                cachedMetricGroups.get(key).put(Fields.MonitorCache.POLLING_INTERVAL, updatedInterval)
-            );
-        });
-    }
-
 }

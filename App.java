@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.nms.api.Server;
+import org.nms.discovery.Discovery;
+import org.nms.plugin.PluginManager;
 import org.nms.scheduler.Scheduler;
 
 public class App
@@ -32,6 +34,10 @@ public class App
                     ))
                     // ===== Start Scheduler =====
                     .compose(v -> vertx.deployVerticle(new Scheduler()))
+                    // ===== Deploy Plugin Verticle =====
+                    .compose(v -> vertx.deployVerticle(new PluginManager()))
+                    // ===== Deploy Discovery Verticle ======
+                    .compose(v -> vertx.deployVerticle(new Discovery()))
                     // ===== Start Http Server =====
                     .compose(v -> vertx.deployVerticle(new Server()))
                     // ===== Success =====

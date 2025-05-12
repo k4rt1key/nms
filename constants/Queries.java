@@ -395,7 +395,7 @@ public class Queries
             ),
             inserted_metrics AS (
                 INSERT INTO metric_group (monitor_id, name, polling_interval)
-                SELECT p.id, m.name, 300
+                SELECT p.id, m.name, 30
                 FROM inserted_monitor p
                 CROSS JOIN metric_group_names m
                 RETURNING *

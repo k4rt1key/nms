@@ -120,8 +120,6 @@ public class ProvisionRequestValidator
 
     public static void deleteProvisionRequestValidator(RoutingContext ctx)
     {
-        if(Utility.validateBody(ctx)) { return; }
-        
         if(Utility.validateID(ctx)) { return; }
 
         ctx.next();

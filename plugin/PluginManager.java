@@ -1,141 +1,153 @@
 package org.nms.plugin;
 
+import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
 import org.nms.ConsoleLogger;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
-import static org.nms.App.vertx;
 
-public class PluginManager
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+public class PluginManager extends AbstractVerticle
 {
     private static final int INITIAL_OVERHEAD = 5;
-
     private static final int DISCOVERY_TIMEOUT_PER_IP = 1;
-
     private static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 10;
 
-    public static Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials)
+    private static final String PLUGIN_TYPE_DISCOVERY = "discovery";
+    private static final String PLUGIN_TYPE_POLLING = "polling";
+
+    @Override
+    public void start()
+    {
+        // Discovery Handler
+        vertx.eventBus().consumer(Fields.EventBus.DISCOVERY_ADDRESS, message ->
+        {
+            var body = (JsonObject) message.body();
+            runDiscovery(
+                    body.getInteger(Fields.PluginDiscoveryRequest.ID),
+                    body.getJsonArray(Fields.PluginDiscoveryRequest.IPS),
+                    body.getInteger(Fields.PluginDiscoveryRequest.PORT),
+                    body.getJsonArray(Fields.PluginDiscoveryRequest.CREDENTIALS)
+            ).onComplete(ar -> message.reply(ar.result()));
+        });
+
+        // Polling Handler
+        vertx.eventBus().consumer(Fields.EventBus.POLLING_ADDRESS, message ->
+        {
+            var body = (JsonObject) message.body();
+            runPolling(body.getJsonArray(Fields.PluginPollingRequest.METRIC_GROUPS))
+                    .onComplete(ar -> message.reply(ar.result()));
+        });
+    }
+
+    private Future<JsonArray> runDiscovery(int discoveryId, JsonArray ips, int port, JsonArray credentials)
     {
         return vertx.executeBlocking(() ->
         {
             try
             {
-                var DISCOVERY_TIMEOUT = INITIAL_OVERHEAD + ( ips.size() * DISCOVERY_TIMEOUT_PER_IP);
-                // Step-1.1 : Prepare Request Json
-                JsonObject discoveryInput = new JsonObject();
-                discoveryInput.put(Fields.PluginDiscoveryRequest.TYPE, Fields.PluginDiscoveryRequest.DISCOVERY);
-                discoveryInput.put(Fields.PluginDiscoveryRequest.ID, discoveryId);
-                discoveryInput.put(Fields.PluginDiscoveryRequest.IPS, ips);
-                discoveryInput.put(Fields.PluginDiscoveryRequest.PORT, port);
-                discoveryInput.put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
+                var DISCOVERY_TIMEOUT = INITIAL_OVERHEAD + (ips.size() * DISCOVERY_TIMEOUT_PER_IP);
 
-                // Step-1.2 : Prepare Command
-                String inputJsonStr = discoveryInput.encode();
-                String[] command = {Config.PLUGIN_PATH, inputJsonStr};
+                // Prepare Discovery Input
+                var discoveryInput = new JsonObject()
+                        .put("type", PLUGIN_TYPE_DISCOVERY)
+                        .put("id", discoveryId)
+                        .put("ips", ips)
+                        .put("port", port)
+                        .put("credentials", credentials);
 
-                // Step-2 : Run Command
+                var inputJsonStr = discoveryInput.encode();
+                var command = new String[] {Config.PLUGIN_PATH, inputJsonStr};
+
+                // Run Discovery Command
                 var builder = new ProcessBuilder(command);
+
                 builder.redirectErrorStream(true);
+
                 var process = builder.start();
 
-                // Waiting For Reply
+                // Wait for Response
                 var done = process.waitFor(DISCOVERY_TIMEOUT, TimeUnit.SECONDS);
 
-                if(!done)
+                if (!done)
                 {
-                    ConsoleLogger.warn("⏱️ GoPlugin Is Not Responding Within " + DISCOVERY_TIMEOUT + " Seconds");
-
+                    ConsoleLogger.warn("GoPlugin not responding within " + DISCOVERY_TIMEOUT + " seconds");
                     process.destroyForcibly();
-
                     return new JsonArray();
                 }
-                else
-                {
-                    // Step-3 : Read Output From Go's Stream
-                    var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    var output = reader.lines().collect(Collectors.joining());
 
-                    // Parse Response JSON
-                    var outputJson = new JsonObject(output);
+                // Read Output
+                var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                var output = reader.lines().collect(Collectors.joining());
 
-                    // Return Result Array
-                    return outputJson.getJsonArray("result");
-                }
-
+                // Parse Response
+                var outputJson = new JsonObject(output);
+                return outputJson.getJsonArray("result");
             }
             catch (Exception e)
             {
-                ConsoleLogger.error("❌ Error Running Discovery In PluginManager " + e.getMessage());
-
+                ConsoleLogger.error("Error in Discovery: " + e.getMessage());
                 return new JsonArray();
             }
         });
     }
 
-    public static Future<JsonArray> runPolling(JsonArray metricGroups)
+    private Future<JsonArray> runPolling(JsonArray metricGroups)
     {
         return vertx.executeBlocking(() ->
         {
             try
             {
-                var POLLING_TIMEOUT = INITIAL_OVERHEAD + ( metricGroups.size() * POLLING_TIMEOUT_PER_METRIC_GROUP );
+                var POLLING_TIMEOUT = INITIAL_OVERHEAD + (metricGroups.size() * POLLING_TIMEOUT_PER_METRIC_GROUP);
 
-                // Step-1.1 : Prepare Request Json
-                var pollingInput = new JsonObject();
+                // Prepare Polling Input
+                var pollingInput = new JsonObject()
+                        .put("type", PLUGIN_TYPE_POLLING)
+                        .put(Fields.PluginPollingRequest.METRIC_GROUPS, metricGroups);
 
-                pollingInput.put(Fields.PluginPollingRequest.TYPE, Fields.PluginPollingRequest.DISCOVERY);
-                pollingInput.put(Fields.PluginPollingRequest.METRIC_GROUPS, metricGroups);
-
-                // Step-1.2 : Prepare Command
                 var inputJsonStr = pollingInput.encode();
-                String[] command = {Config.PLUGIN_PATH, inputJsonStr};
+                var command = new String[] {Config.PLUGIN_PATH, inputJsonStr};
 
-                ConsoleLogger.debug("Sending " + Arrays.toString(command));
+                ConsoleLogger.debug("Sending Polling Request: " + command[1]);
 
-                // Step-2 : Run Command
+                // Run Polling Command
                 var builder = new ProcessBuilder(command);
                 builder.redirectErrorStream(true);
                 var process = builder.start();
 
-                // Waiting 20 Seconds For Reply
+                // Wait for Response
                 var done = process.waitFor(POLLING_TIMEOUT, TimeUnit.SECONDS);
 
-                if(!done)
+                if (!done)
                 {
-                    ConsoleLogger.warn("⏱️ GoPlugin Is Not Responding Within " + POLLING_TIMEOUT + " Seconds");
-
+                    ConsoleLogger.warn("GoPlugin not responding within " + POLLING_TIMEOUT + " seconds");
+                    process.destroyForcibly();
                     return new JsonArray();
                 }
-                else
-                {
-                    // Step-3 : Read Output From Go's Stream
-                    var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    var output = reader.lines().collect(Collectors.joining());
 
-                    // Parse Response JSON
-                    var outputJson = new JsonObject(output);
+                // Read Output
+                var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                var output = reader.lines().collect(Collectors.joining());
 
-                    ConsoleLogger.debug("Recieved " + outputJson.encode());
+                // Parse Response
+                var outputJson = new JsonObject(output);
 
-                    // Return Result Array
-                    return outputJson.getJsonArray(Fields.PluginPollingResponse.METRIC_GROUPS);
-                }
+                ConsoleLogger.debug("Received Polling Response: " + outputJson.encode());
+
+                // Return Results
+                return outputJson.getJsonArray(Fields.PluginPollingRequest.METRIC_GROUPS);
             }
             catch (Exception e)
             {
-                ConsoleLogger.error("❌ Error Running Discovery In PluginManager " + e.getMessage());
-
+                ConsoleLogger.error("Error in Polling: " + e.getMessage());
                 return new JsonArray();
             }
         });
     }
-
 }
