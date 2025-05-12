@@ -8,6 +8,7 @@ import io.vertx.sqlclient.Tuple;
 import org.nms.ConsoleLogger;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class DbEngine
 {
@@ -16,12 +17,11 @@ public class DbEngine
     {
         if(DbClient.client != null)
         {
-            return DbClient
-                    .client
+            return DbClient.client
                     .preparedQuery(sql)
                     .execute(Tuple.wrap(params.getList().toArray()))
                     .map(DbEngine::toJsonArray)
-                    .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params" + params.encode()))
+                    .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed... \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params" + params.encode()))
                     .onFailure(err -> ConsoleLogger.error("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
         }
         else
@@ -36,8 +36,7 @@ public class DbEngine
     {
         if(DbClient.client != null)
         {
-            return DbClient
-                    .client
+            return DbClient.client
                     .preparedQuery(sql)
                     .execute()
                     .map(DbEngine::toJsonArray);
@@ -54,12 +53,11 @@ public class DbEngine
     {
         if(DbClient.client != null)
         {
-            return DbClient
-                    .client
+            return DbClient.client
                     .preparedQuery(sql)
                     .executeBatch(params)
                     .map(DbEngine::toJsonArray)
-                    .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params " + params.stream().toArray().toString()))
+                    .onSuccess(result -> ConsoleLogger.info("✅ Successfully executed... \n\uD83D\uDE80 " + sql + "\n\uD83D\uDE80 With Params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]"))))
                     .onFailure(err -> ConsoleLogger.error("❌ Failed to execute " + sql + ", error => " + err.getMessage()));
         }
         else

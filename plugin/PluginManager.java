@@ -89,24 +89,24 @@ public class PluginManager
                 var POLLING_TIMEOUT = INITIAL_OVERHEAD + ( metricGroups.size() * POLLING_TIMEOUT_PER_METRIC_GROUP );
 
                 // Step-1.1 : Prepare Request Json
-                JsonObject pollingInput = new JsonObject();
+                var pollingInput = new JsonObject();
 
                 pollingInput.put(Fields.PluginPollingRequest.TYPE, Fields.PluginPollingRequest.DISCOVERY);
                 pollingInput.put(Fields.PluginPollingRequest.METRIC_GROUPS, metricGroups);
 
                 // Step-1.2 : Prepare Command
-                String inputJsonStr = pollingInput.encode();
+                var inputJsonStr = pollingInput.encode();
                 String[] command = {Config.PLUGIN_PATH, inputJsonStr};
 
                 ConsoleLogger.debug("Sending " + Arrays.toString(command));
 
                 // Step-2 : Run Command
-                ProcessBuilder builder = new ProcessBuilder(command);
+                var builder = new ProcessBuilder(command);
                 builder.redirectErrorStream(true);
-                Process process = builder.start();
+                var process = builder.start();
 
                 // Waiting 20 Seconds For Reply
-                boolean done = process.waitFor(POLLING_TIMEOUT, TimeUnit.SECONDS);
+                var done = process.waitFor(POLLING_TIMEOUT, TimeUnit.SECONDS);
 
                 if(!done)
                 {
@@ -117,11 +117,11 @@ public class PluginManager
                 else
                 {
                     // Step-3 : Read Output From Go's Stream
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                    String output = reader.lines().collect(Collectors.joining());
+                    var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                    var output = reader.lines().collect(Collectors.joining());
 
                     // Parse Response JSON
-                    JsonObject outputJson = new JsonObject(output);
+                    var outputJson = new JsonObject(output);
 
                     ConsoleLogger.debug("Recieved " + outputJson.encode());
 

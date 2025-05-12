@@ -38,7 +38,9 @@ public class DbClient
         }
         catch (Exception e)
         {
-            ConsoleLogger.error("Failed to create Postgres client");
+            ConsoleLogger.error("Failed to create Postgres client, reason => " + e.getMessage());
+
+            System.exit(1);
 
             return null;
         }

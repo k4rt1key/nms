@@ -1,10 +1,7 @@
 package org.nms.api.validators;
 
 import io.vertx.ext.web.RoutingContext;
-import org.nms.ConsoleLogger;
 import org.nms.api.helpers.HttpResponse;
-
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Utility
 {

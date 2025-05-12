@@ -81,7 +81,7 @@ public class ProvisionHandler
 
                     var results = discoveriesWithResult.getJsonObject(0).getJsonArray(Fields.Discovery.RESULT_JSON);
 
-                    List<Future> addMonitorsFuture = new ArrayList<>();
+                    var addMonitorsFuture = new ArrayList<Future>();
 
                     if(results != null && !results.isEmpty())
                     {

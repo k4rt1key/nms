@@ -52,7 +52,7 @@ public class MonitorCache
             var monitorObject = monitorArray.getJsonObject(i);
 
             // Step-2 : Iterate Over All Metric Group Of Particular monitor
-            for(var k = 0; k < monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).size(); k++)
+            for(var k = 0; k < monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).size(); k++)
             {
                 try {
                     var metricObject = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k);
@@ -60,14 +60,14 @@ public class MonitorCache
                     var value = new JsonObject()
                             .put(Fields.MonitorCache.ID, metricObject.getInteger(Fields.MetricGroup.ID))
                             .put(Fields.MonitorCache.MONITOR_ID, monitorObject.getInteger(Fields.Monitor.ID))
-                            .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Monitor.PORT)))
-                            .put(Fields.MonitorCache.CREDENTIALS, monitorObject.getJsonObject(Monitor.CREDENTIAL_JSON).copy())
+                            .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Fields.Monitor.PORT)))
+                            .put(Fields.MonitorCache.CREDENTIALS, monitorObject.getJsonObject(Fields.Monitor.CREDENTIAL_JSON).copy())
                             .put(Fields.MonitorCache.IP, monitorObject.getString(Fields.Monitor.IP))
                             .put(Fields.MonitorCache.NAME, metricObject.getString(Fields.MetricGroup.NAME))
                             .put(Fields.MonitorCache.POLLING_INTERVAL, metricObject.getInteger(Fields.MetricGroup.POLLING_INTERVAL))
                             .put(Fields.MonitorCache.IS_ENABLED, metricObject.getBoolean(Fields.MetricGroup.IS_ENABLED));
 
-                    var key = monitorObject.getJsonArray(Monitor.METRIC_GROUP_JSON).getJsonObject(k).getInteger(Fields.MetricGroup.ID);
+                    var key = monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).getJsonObject(k).getInteger(Fields.MetricGroup.ID);
 
                     referencedMetricGroups.put(key, value.copy());
 
@@ -130,7 +130,7 @@ public class MonitorCache
     // ===== Deletes MetricGroup Present Into Cache =====
     public static void deleteMetricGroups(Integer monitorId)
     {
-        AtomicInteger total = new AtomicInteger();
+        var total = new AtomicInteger();
 
         referencedMetricGroups.forEach((key, value)->
         {
@@ -153,12 +153,12 @@ public class MonitorCache
      */
     public static List<JsonObject> getTimedOutMetricGroups()
     {
-        List<JsonObject> timedOutMetricGroups = new ArrayList<>();
+        var timedOutMetricGroups = new ArrayList<JsonObject>();
 
         // Iterate Over All Metric Groups And Decrement Interval
         cachedMetricGroups.forEach((key, value) ->
         {
-            Integer pollingInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
+            var pollingInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
 
             if (pollingInterval <= 0)
             {
@@ -198,9 +198,9 @@ public class MonitorCache
     {
         cachedMetricGroups.forEach((key, value) ->
         {
-            Integer currentInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
+            var currentInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
 
-            Integer updatedInterval =  Math.max(0, currentInterval - interval);
+            var updatedInterval =  Math.max(0, currentInterval - interval);
 
             cachedMetricGroups.put(
                 key,

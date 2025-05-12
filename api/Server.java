@@ -33,6 +33,7 @@ public class Server extends AbstractVerticle
 
     private static final JWTAuthOptions config = new JWTAuthOptions()
                                                     .setKeyStore(new KeyStoreOptions().setPath(Config.KEYSTORE_PATH).setPassword(Config.JWT_SECRET));
+
     public static final JWTAuth jwtAuth = JWTAuth.create(App.vertx, config);
 
     @Override

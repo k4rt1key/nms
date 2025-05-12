@@ -5,15 +5,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.NetClient;
 import io.vertx.core.net.NetClientOptions;
-import io.vertx.core.net.NetSocket;
 import org.nms.App;
 import org.nms.ConsoleLogger;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.List;
 
 public class PortCheck
 {
@@ -21,8 +18,9 @@ public class PortCheck
     public static Future<JsonArray> checkPorts(JsonArray ips, int port)
     {
         Promise<JsonArray> allDone = Promise.promise();
-        JsonArray results = new JsonArray();
-        List<Future> futures = new ArrayList<>();
+
+        var results = new JsonArray();
+        var futures = new ArrayList<Future>();
 
         if (ips == null || ips.isEmpty())
         {
@@ -40,7 +38,7 @@ public class PortCheck
 
         try
         {
-            for (Object ipObj : ips)
+            for (var ipObj : ips)
             {
                 if (!(ipObj instanceof String))
                 {
@@ -56,14 +54,15 @@ public class PortCheck
                     continue;
                 }
 
-                Promise<JsonObject> checkPromise = Promise.promise();
+                var checkPromise = Promise.promise();
+
                 futures.add(checkPromise.future());
 
-                JsonObject result = new JsonObject().put("ip", ip).put("port", port);
+                var result = new JsonObject().put("ip", ip).put("port", port);
 
                 try
                 {
-                    NetClient client = App.vertx.createNetClient(new NetClientOptions()
+                    var client = App.vertx.createNetClient(new NetClientOptions()
                             .setConnectTimeout(2000)
                             .setReconnectAttempts(0));
 
@@ -73,15 +72,17 @@ public class PortCheck
                         {
                             if (ar.succeeded())
                             {
-                                NetSocket socket = ar.result();
+                                var socket = ar.result();
+
                                 result.put("message", "Port " + port + " is open on " + ip);
                                 result.put("success", true);
+
                                 socket.close();
                             }
                             else
                             {
-                                Throwable cause = ar.cause();
-                                String errorMessage = cause != null ? cause.getMessage() : "Unknown error";
+                                var cause = ar.cause();
+                                var errorMessage = cause != null ? cause.getMessage() : "Unknown error";
 
                                 if (errorMessage.contains("Connection refused"))
                                 {
@@ -105,6 +106,7 @@ public class PortCheck
                         catch (Exception e)
                         {
                             ConsoleLogger.error("Error handling connection result for " + ip + ":" + port + " - " + e.getMessage());
+
                             result.put("message", "Error during connection handling: " + e.getMessage());
                             result.put("success", false);
                         }
@@ -126,9 +128,11 @@ public class PortCheck
                 catch (Exception e)
                 {
                     ConsoleLogger.error("Failed to create or connect client for " + ip + ":" + port + " - " + e.getMessage());
+
                     result.put("message", "Error creating connection: " + e.getMessage());
                     result.put("success", false);
                     results.add(result);
+
                     checkPromise.complete(result);
                 }
             }

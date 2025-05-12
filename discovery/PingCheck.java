@@ -20,7 +20,7 @@ public class PingCheck
     {
         return App.vertx.executeBlocking(promise ->
         {
-            JsonArray results = new JsonArray();
+            var results = new JsonArray();
             Process process = null;
             BufferedReader reader = null;
 
@@ -37,10 +37,10 @@ public class PingCheck
                 }
 
                 // Validate IP addresses and collect valid ones
-                JsonArray validIps = new JsonArray();
+                var validIps = new JsonArray();
                 for (int i = 0; i < ipArray.size(); i++)
                 {
-                    Object ipObj = ipArray.getValue(i);
+                    var ipObj = ipArray.getValue(i);
 
                     if (!(ipObj instanceof String))
                     {
@@ -49,7 +49,7 @@ public class PingCheck
                         continue;
                     }
 
-                    String ip = (String) ipObj;
+                    var ip = (String) ipObj;
 
                     if (ip.trim().isEmpty())
                     {
@@ -69,7 +69,7 @@ public class PingCheck
                 }
 
                 // Step - 1 : Prepare fping command [ fping -c3 ip1 ip2 ... ]
-                String[] command = new String[validIps.size() + 2];
+                var command = new String[validIps.size() + 2];
                 command[0] = "fping";
                 command[1] = "-c3";
 
@@ -78,12 +78,12 @@ public class PingCheck
                     command[i + 2] = validIps.getString(i);
                 }
 
-                ProcessBuilder pb = new ProcessBuilder(command);
+                var pb = new ProcessBuilder(command);
                 pb.redirectErrorStream(true);
                 process = pb.start();
 
                 // Set up a timeout for the process
-                boolean completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                var completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
                 if (!completed)
                 {
@@ -95,19 +95,19 @@ public class PingCheck
                 String line;
 
                 // Track processed IPs to identify any missing results
-                JsonArray processedIps = new JsonArray();
+                var processedIps = new JsonArray();
 
                 while ((line = reader.readLine()) != null)
                 {
                     // Format: <ip> : xmt/rcv/%loss = 3/3/0%, min/avg/max = 2.34/4.56/6.78
-                    String[] parts = line.split(":");
+                    var parts = line.split(":");
                     if (parts.length < 2) continue;
 
-                    String ip = parts[0].trim();
-                    String stats = parts[1].trim();
+                    var ip = parts[0].trim();
+                    var stats = parts[1].trim();
                     processedIps.add(ip);
 
-                    JsonObject result = new JsonObject().put("ip", ip);
+                    var result = new JsonObject().put("ip", ip);
 
                     if (stats.contains("100%"))
                     {
@@ -125,9 +125,9 @@ public class PingCheck
                 }
 
                 // Handle any IPs that didn't get processed (no output from fping)
-                for (int i = 0; i < validIps.size(); i++)
+                for (var i = 0; i < validIps.size(); i++)
                 {
-                    String ip = validIps.getString(i);
+                    var ip = validIps.getString(i);
                     if (!processedIps.contains(ip))
                     {
                         results.add(createErrorResult(ip, "No response from fping"));

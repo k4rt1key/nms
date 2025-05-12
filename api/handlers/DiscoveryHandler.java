@@ -40,7 +40,7 @@ public class DiscoveryHandler
 
     public static void getDiscoveryById(RoutingContext ctx)
     {
-        int id = Integer.parseInt(ctx.request().getParam("id"));
+        var id = Integer.parseInt(ctx.request().getParam("id"));
 
         DbEngine.execute(Queries.Discovery.GET_BY_ID,  new JsonArray().add(id))
                 .onSuccess(discovery ->
@@ -60,7 +60,7 @@ public class DiscoveryHandler
 
     public static void getDiscoveryResultsById(RoutingContext ctx)
     {
-        int id = Integer.parseInt(ctx.request().getParam("id"));
+        var id = Integer.parseInt(ctx.request().getParam("id"));
 
         DbEngine.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id))
                 .onSuccess(discovery ->
@@ -120,7 +120,7 @@ public class DiscoveryHandler
                     }
 
                     // Step 2: Add credentials to discovery
-                    List<Tuple> credentialsToAdd = new ArrayList<>();
+                    var credentialsToAdd = new ArrayList<Tuple>();
 
                     var discoveryId = discovery.getJsonObject(0).getInteger(Fields.Discovery.ID);
 
@@ -231,10 +231,10 @@ public class DiscoveryHandler
                     var removeCredentials = ctx.body().asJsonObject().getJsonArray("remove_credentials");
 
                     // Step 2: Add credentials to discovery if any
-                    List<Tuple> credentialsToAdd = new ArrayList<>();
+                    var credentialsToAdd = new ArrayList<Tuple>();
 
                     if (addCredentials != null && !addCredentials.isEmpty()) {
-                        for (int i = 0; i < addCredentials.size(); i++)
+                        for (var i = 0; i < addCredentials.size(); i++)
                         {
                             var credentialId = Integer.parseInt(addCredentials.getString(i));
                             credentialsToAdd.add(Tuple.of(id, credentialId));
@@ -262,9 +262,9 @@ public class DiscoveryHandler
     {
         if (removeCredentials != null && !removeCredentials.isEmpty())
         {
-            List<Tuple> credentialsToRemove = new ArrayList<>();
+           var credentialsToRemove = new ArrayList<Tuple>();
 
-            for (int i = 0; i < removeCredentials.size(); i++)
+            for (var i = 0; i < removeCredentials.size(); i++)
             {
                 var credentialId = Integer.parseInt(removeCredentials.getString(i));
                 credentialsToRemove.add(Tuple.of(discoveryId, credentialId));
@@ -329,8 +329,8 @@ public class DiscoveryHandler
                         return Future.failedFuture(new Exception("Discovery not found"));
                     }
 
-                    Promise<Object> isReady = Promise.promise();
-                    Future<Object> runDiscovery = isReady.future();
+                    var isReady = Promise.promise();
+                    var runDiscovery = isReady.future();
 
                     DbEngine
                             .execute(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id))
@@ -398,9 +398,12 @@ public class DiscoveryHandler
 
                                                 var success = result.getBoolean("success");
 
-                                                if (success) {
+                                                if (success)
+                                                {
                                                     portCheckPassedIps.add(result.getString("ip"));
-                                                } else {
+                                                }
+                                                else
+                                                {
                                                     portCheckFailedIps.add(result);
                                                 }
                                             }
@@ -485,11 +488,11 @@ public class DiscoveryHandler
                                                         }
 
                                                         // Handle empty lists to avoid batch query errors
-                                                        Future<JsonArray> failureFuture = ipsToAddAfterCredentialFailure.isEmpty()
+                                                       var failureFuture = ipsToAddAfterCredentialFailure.isEmpty()
                                                                 ? Future.succeededFuture(new JsonArray())
                                                                 : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialFailure);
 
-                                                        Future<JsonArray> successFuture = ipsToAddAfterCredentialSuccess.isEmpty()
+                                                        var successFuture = ipsToAddAfterCredentialSuccess.isEmpty()
                                                                 ? Future.succeededFuture(new JsonArray())
                                                                 : DbEngine.execute(Queries.Discovery.INSERT_RESULT, ipsToAddAfterCredentialSuccess);
 

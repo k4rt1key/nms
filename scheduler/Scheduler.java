@@ -59,13 +59,13 @@ public class Scheduler extends AbstractVerticle
         MonitorCache.decrementMetricGroupInterval(CHECKING_INTERVAL);
 
         // Step-2 : After Decrementing Check For Timed-Out MetricGroups
-        List<JsonObject> timedOutGroups = MonitorCache.getTimedOutMetricGroups();
+        var timedOutGroups = MonitorCache.getTimedOutMetricGroups();
 
         // Step-3 : If There are Timed-out MetricGroups Ready For Polling...
         if (!timedOutGroups.isEmpty())
         {
             // Step-4 : Format Request For Polling
-            JsonArray metricGroups = preparePollingMetricGroups(timedOutGroups);
+            var metricGroups = preparePollingMetricGroups(timedOutGroups);
 
             // Step-5: Send Request to PluginManager
             PluginManager
@@ -79,9 +79,9 @@ public class Scheduler extends AbstractVerticle
     // ===== Prepares Polling Request For Plugin =====
     private JsonArray preparePollingMetricGroups(List<JsonObject> timedOutGroups)
     {
-        JsonArray metricGroups = new JsonArray();
+        var metricGroups = new JsonArray();
 
-        for (JsonObject metricGroup : timedOutGroups)
+        for (var metricGroup : timedOutGroups)
         {
             JsonObject groupData = new JsonObject()
                     .put(Fields.PluginPollingRequest.MONITOR_ID, metricGroup.getInteger(Fields.MonitorCache.MONITOR_ID))
@@ -100,11 +100,11 @@ public class Scheduler extends AbstractVerticle
     // ===== Process Plugin Manager's Response & Save The Results In DB =====
     private void processAndSaveResults(JsonArray results)
     {
-        List<Tuple> batchParams = new ArrayList<>();
+        var batchParams = new ArrayList<Tuple>();
 
-        for (int i = 0; i < results.size(); i++)
+        for (var i = 0; i < results.size(); i++)
         {
-            JsonObject result = results.getJsonObject(i);
+            var result = results.getJsonObject(i);
 
             // Step-1 : Skip unsuccessful results
             if (!result.getBoolean("success", false))
