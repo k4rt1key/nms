@@ -7,14 +7,14 @@ import io.vertx.ext.web.RoutingContext;
 
 import org.nms.api.Server;
 import org.nms.api.helpers.HttpResponse;
-import org.nms.database.DbEngine;
+import org.nms.database.helpers.DbEventBus;
 import org.nms.constants.Queries.*;
 
 public class UserHandler
 {
     public static void getUsers(RoutingContext ctx)
     {
-        DbEngine.execute(User.GET_ALL)
+        DbEventBus.sendQueryExecutionRequest(User.GET_ALL)
                 .onSuccess(users ->
                 {
                     // User not found
@@ -33,7 +33,7 @@ public class UserHandler
     {
         int id = Integer.parseInt(ctx.request().getParam("id"));
 
-        DbEngine.execute(User.GET_BY_ID,new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(User.GET_BY_ID,new JsonArray().add(id))
                 .onSuccess(user ->
                 {
                     // User not found
@@ -52,7 +52,7 @@ public class UserHandler
     public static void register(RoutingContext ctx)
     {
         // Step : 1 - Check if user exists or not
-        DbEngine.execute(User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
+        DbEventBus.sendQueryExecutionRequest(User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
                 .compose(user ->
                 {
                     // User already exists
@@ -69,7 +69,7 @@ public class UserHandler
                 .compose(v ->
 
                         // Step : 2 - Register user
-                        DbEngine.execute(User.INSERT, new JsonArray()
+                        DbEventBus.sendQueryExecutionRequest(User.INSERT, new JsonArray()
                                         .add(ctx.body().asJsonObject().getString("name"))
                                         .add(ctx.body().asJsonObject().getString("password"))
                         ))
@@ -101,7 +101,7 @@ public class UserHandler
         var username = ctx.body().asJsonObject().getString("name");
 
         // Step - 1 : Check if user exists or not
-        DbEngine.execute(User.GET_BY_NAME, new JsonArray().add(username))
+        DbEventBus.sendQueryExecutionRequest(User.GET_BY_NAME, new JsonArray().add(username))
                 .onSuccess(user ->
                 {
                     // User not found
@@ -140,7 +140,7 @@ public class UserHandler
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        DbEngine.execute(User.UPDATE, new JsonArray()
+        DbEventBus.sendQueryExecutionRequest(User.UPDATE, new JsonArray()
                         .add(id)
                         .add(username)
                         .add(password)
@@ -154,7 +154,7 @@ public class UserHandler
         var id = Integer.parseInt(ctx.request().getParam("id"));
 
         // Step - 1 : Check if user exists or not
-        DbEngine.execute(User.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(User.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess(res ->
                 {
                     // User not found
@@ -174,7 +174,7 @@ public class UserHandler
                     }
 
                     // Step - 2 : If existed, Delete user
-                    DbEngine.execute(User.DELETE, new JsonArray().add(id))
+                    DbEventBus.sendQueryExecutionRequest(User.DELETE, new JsonArray().add(id))
                             .onSuccess( delRes -> HttpResponse.sendSuccess(ctx, 200, "User deleted Successfully", res))
                             .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Error deleting user: " + err.getMessage()));
                 })

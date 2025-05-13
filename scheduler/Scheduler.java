@@ -7,11 +7,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
 import org.nms.App;
 import org.nms.cache.MonitorCache;
-import org.nms.ConsoleLogger;
+import org.nms.Logger;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbEngine;
+import org.nms.database.helpers.DbEventBus;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -26,7 +26,7 @@ public class Scheduler extends AbstractVerticle
     @Override
     public void start()
     {
-        ConsoleLogger.debug("✅ Starting SchedulerVerticle with CHECKING_INTERVAL => " + CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
+        Logger.debug("✅ Starting SchedulerVerticle with CHECKING_INTERVAL => " + CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
 
         // Populate cache from DB
         MonitorCache.populate()
@@ -34,7 +34,7 @@ public class Scheduler extends AbstractVerticle
                 .onSuccess(res ->
                         timerId = App.vertx.setPeriodic(CHECKING_INTERVAL * 1000, id -> processMetricGroups()))
                 .onFailure(err ->
-                        ConsoleLogger.error("❌ Error Running Scheduler => " + err.getMessage())
+                        Logger.error("❌ Error Running Scheduler => " + err.getMessage())
                 );
     }
 
@@ -45,7 +45,7 @@ public class Scheduler extends AbstractVerticle
         {
             vertx.cancelTimer(timerId);
 
-            ConsoleLogger.debug("\uD83D\uDED1 Scheduler Stopped");
+            Logger.debug("\uD83D\uDED1 Scheduler Stopped");
 
             timerId = 0;
         }
@@ -68,7 +68,7 @@ public class Scheduler extends AbstractVerticle
                     .put("type", "polling")
                     .put(Fields.PluginPollingRequest.METRIC_GROUPS, metricGroups);
 
-            var POLLING_TIMEOUT = Config.INITIAL_OVERHEAD + (metricGroups.size() * Config.POLLING_TIMEOUT_PER_METRIC_GROUP);
+            var POLLING_TIMEOUT = Config.INITIAL_PLUGIN_OVERHEAD_TIME + (metricGroups.size() * Config.POLLING_TIMEOUT_PER_METRIC_GROUP);
 
             // Send polling request via plugin execute event bus
             vertx.eventBus().request(
@@ -83,7 +83,7 @@ public class Scheduler extends AbstractVerticle
 
                             if (response.containsKey("error"))
                             {
-                                ConsoleLogger.error("❌ Error During Polling => " + response.getString("error"));
+                                Logger.error("❌ Error During Polling => " + response.getString("error"));
                             }
                             else
                             {
@@ -93,7 +93,7 @@ public class Scheduler extends AbstractVerticle
                         }
                         else
                         {
-                            ConsoleLogger.error("❌ Error During Polling => " + ar.cause().getMessage());
+                            Logger.error("❌ Error During Polling => " + ar.cause().getMessage());
                         }
                     }
             );
@@ -176,9 +176,9 @@ public class Scheduler extends AbstractVerticle
         // Save results to database
         if (!batchParams.isEmpty())
         {
-            DbEngine.execute(Queries.PollingResult.INSERT, batchParams)
+            DbEventBus.sendQueryExecutionRequest(Queries.PollingResult.INSERT, batchParams)
                     .onFailure(err ->
-                            ConsoleLogger.error("❌ Error During Saving Polled Data => " + err.getMessage())
+                            Logger.error("❌ Error During Saving Polled Data => " + err.getMessage())
                     );
         }
     }

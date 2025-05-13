@@ -196,7 +196,7 @@ public class Fields
     {
         public static final String PLUGIN_ADDRESS = "plugin.execute";
 
-        public static final String DISCOVERY_ADDRESS = "plugin.discovery";
+        public static final String RUN_DISCOVERY_ADDRESS = "plugin.discovery";
 
         public static final String PING_CHECK_ADDRESS = "discovery.ping";
 

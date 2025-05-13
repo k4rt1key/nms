@@ -4,12 +4,12 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.ConsoleLogger;
+import org.nms.Logger;
 import org.nms.cache.MonitorCache;
 import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbEngine;
+import org.nms.database.helpers.DbEventBus;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +18,7 @@ public class ProvisionHandler
 {
     public static void getAllProvisions(RoutingContext ctx)
     {
-        DbEngine.execute(Queries.Monitor.GET_ALL)
+        DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
                 .onSuccess(monitors ->
                 {
                     // Provisions not found
@@ -39,7 +39,7 @@ public class ProvisionHandler
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
 
-        DbEngine.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess( monitor ->
                 {
                     // Provision not found
@@ -62,7 +62,7 @@ public class ProvisionHandler
 
         var ips = ctx.body().asJsonObject().getJsonArray("ips");
 
-        DbEngine.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(discovery_id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(discovery_id))
                 // If Discovery Exist ??
                 .onSuccess(discoveriesWithResult ->
                 {
@@ -87,9 +87,9 @@ public class ProvisionHandler
                     {
                         for(var j = 0; j < ips.size(); j++)
                         {
-                            addMonitorsFuture.add(DbEngine.execute(Queries.Monitor.INSERT, new JsonArray().add(discovery_id).add(ips.getString(j))));
+                            addMonitorsFuture.add(DbEventBus.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(discovery_id).add(ips.getString(j))));
 
-                            ConsoleLogger.debug(ips.getString(j));
+                            Logger.debug(ips.getString(j));
                         }
 
                         // Save Monitors
@@ -135,7 +135,7 @@ public class ProvisionHandler
         var id = Integer.parseInt(ctx.request().getParam("id"));
 
         // First check if discovery exists
-        DbEngine.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess(provision ->
                 {
                     if (provision.isEmpty())
@@ -145,7 +145,7 @@ public class ProvisionHandler
                     }
 
                     // Provision found, proceed with delete
-                    DbEngine.execute(Queries.Monitor.DELETE, new JsonArray().add(id))
+                    DbEventBus.sendQueryExecutionRequest(Queries.Monitor.DELETE, new JsonArray().add(id))
                             .onSuccess(deletedMonitor ->
                             {
                                 if(!deletedMonitor.isEmpty())
@@ -170,7 +170,7 @@ public class ProvisionHandler
 
         var metrics = ctx.body().asJsonObject().getJsonArray("metrics");
 
-        DbEngine.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
                 .compose(v ->
                 {
                     if(v.isEmpty())
@@ -184,16 +184,18 @@ public class ProvisionHandler
                     for (var i = 0; i < metrics.size(); i++)
                     {
                         var name = metrics.getJsonObject(i).getString(Fields.MetricGroup.NAME);
+
                         var pollingInterval = metrics.getJsonObject(i).getInteger(Fields.MetricGroup.POLLING_INTERVAL);
+
                         var isEnabled = metrics.getJsonObject(i).getBoolean(Fields.MetricGroup.IS_ENABLED);
 
-                        updateMetricGroupsFuture.add(DbEngine.execute(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
+                        updateMetricGroupsFuture.add(DbEventBus.sendQueryExecutionRequest(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
                     }
 
                     // Update Metric Group
                     return Future.join(updateMetricGroupsFuture)
                             .compose(c ->
-                                    DbEngine.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+                                    DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
                                             .onSuccess(res ->
                                             {
                                                 MonitorCache.updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));

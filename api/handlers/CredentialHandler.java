@@ -4,13 +4,13 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Queries;
-import org.nms.database.DbEngine;
+import org.nms.database.helpers.DbEventBus;
 
 public class CredentialHandler
 {
     public static void getAllCredentials(RoutingContext ctx)
     {
-        DbEngine.execute(Queries.Credential.GET_ALL)
+        DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_ALL)
                 .onSuccess(credentials ->
                 {
                     // Credentials not found
@@ -30,7 +30,7 @@ public class CredentialHandler
     {
         int id = Integer.parseInt(ctx.request().getParam("id"));
 
-        DbEngine.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess(credential ->
                 {
                     // Credential not found
@@ -52,7 +52,7 @@ public class CredentialHandler
         var username = ctx.body().asJsonObject().getString("username");
         var password = ctx.body().asJsonObject().getString("password");
 
-                DbEngine.execute(Queries.Credential.INSERT, new JsonArray()
+                DbEventBus.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
                         .add(name)
                         .add(username)
                         .add(password)
@@ -76,7 +76,7 @@ public class CredentialHandler
         var id = Integer.parseInt(ctx.request().getParam("id"));
 
         // First check if credential exists
-        DbEngine.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess(credential ->
                 {
                     // Credential not found
@@ -91,7 +91,7 @@ public class CredentialHandler
                     var username = ctx.body().asJsonObject().getString("username");
                     var password = ctx.body().asJsonObject().getString("password");
 
-                    DbEngine.execute(Queries.Credential.UPDATE, new JsonArray()
+                    DbEventBus.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                                     .add(id)
                                     .add(name)
                                     .add(username)
@@ -108,7 +108,7 @@ public class CredentialHandler
         var id = Integer.parseInt(ctx.request().getParam("id"));
 
         // First check if credential exists
-        DbEngine.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
+        DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id))
                 .onSuccess(credential ->
                 {
                     // Credential not found
@@ -119,7 +119,7 @@ public class CredentialHandler
                     }
 
                     // Credential found, proceed with delete
-                    DbEngine.execute(Queries.Credential.DELETE, new JsonArray().add(id))
+                    DbEventBus.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id))
                             .onSuccess(res -> HttpResponse.sendSuccess(ctx, 200, "Credential deleted successfully", credential))
                             .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
                 })

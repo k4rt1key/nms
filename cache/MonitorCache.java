@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.nms.ConsoleLogger;
+import org.nms.Logger;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbEngine;
+import org.nms.database.helpers.DbEventBus;
 
 public class MonitorCache
 {
@@ -22,7 +22,7 @@ public class MonitorCache
     {
         try
         {
-            return DbEngine.execute(Queries.Monitor.GET_ALL)
+            return DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
                     .onSuccess(monitorArray ->
                     {
                         if (!monitorArray.isEmpty())
@@ -33,7 +33,7 @@ public class MonitorCache
         }
         catch (Exception e)
         {
-            ConsoleLogger.error("Error Populating Cache");
+            Logger.error("Error Populating Cache");
             return Future.failedFuture("Error Populating Cache");
         }
     }
@@ -68,13 +68,13 @@ public class MonitorCache
                 }
                 catch (Exception e)
                 {
-                    ConsoleLogger.warn("Error Inserting Monitor in cache: " + e.getMessage());
+                    Logger.warn("Error Inserting Monitor in cache: " + e.getMessage());
                 }
             }
         }
 
 
-        ConsoleLogger.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
+        Logger.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
     }
 
     // Update metric groups in cache
@@ -112,11 +112,11 @@ public class MonitorCache
             }
             catch (Exception e)
             {
-                ConsoleLogger.warn("Error Updating Monitor in Cache: " + e.getMessage());
+                Logger.warn("Error Updating Monitor in Cache: " + e.getMessage());
             }
         }
 
-        ConsoleLogger.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
+        Logger.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
     }
 
     // Delete metric groups for a specific monitor
@@ -135,7 +135,7 @@ public class MonitorCache
             return false;
         });
 
-        ConsoleLogger.info("➖ Removed " + removedCount.size() + " Entries from Cache");
+        Logger.info("➖ Removed " + removedCount.size() + " Entries from Cache");
     }
 
     // Decrement intervals and collect timed-out metric groups
@@ -179,7 +179,7 @@ public class MonitorCache
             return false;
         });
 
-        ConsoleLogger.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
+        Logger.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
         return timedOutMetricGroups;
     }
 }
