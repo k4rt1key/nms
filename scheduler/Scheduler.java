@@ -7,7 +7,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
 import org.nms.App;
-import org.nms.cache.MonitorCache;
+import org.nms.cache.Monitor;
 import org.nms.Logger;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
@@ -27,7 +27,7 @@ public class Scheduler extends AbstractVerticle
     @Override
     public void start(Promise<Void> startPromise)
     {
-        var populateRequest = MonitorCache.populate();
+        var populateRequest = Monitor.populate();
 
         populateRequest.onComplete(ar ->
         {
@@ -59,7 +59,7 @@ public class Scheduler extends AbstractVerticle
 
     private void processMetricGroups()
     {
-        var timedOutGroups = MonitorCache.decrementAndCollectTimedOutMetricGroups(CHECKING_INTERVAL);
+        var timedOutGroups = Monitor.decrementAndCollectTimedOutMetricGroups(CHECKING_INTERVAL);
 
         if (!timedOutGroups.isEmpty())
         {

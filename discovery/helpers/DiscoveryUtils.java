@@ -4,7 +4,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.nms.Logger;
 
-public class Utils
+public class DiscoveryUtils
 {
     public static JsonObject createErrorResult(String ip, String message)
     {

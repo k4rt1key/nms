@@ -11,7 +11,7 @@ import org.nms.database.helpers.DbEventBus;
 
 import java.util.ArrayList;
 
-public class Db
+public class DatabaseUtils
 {
     public static Future<JsonObject> fetchDiscoveryDetails(int id)
     {

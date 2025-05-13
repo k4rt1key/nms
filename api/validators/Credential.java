@@ -3,7 +3,7 @@ package org.nms.api.validators;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Fields;
 
-public class CredentialRequestValidator
+public class Credential
 {
     public static void getCredentialByIdRequestValidator(RoutingContext ctx)
     {

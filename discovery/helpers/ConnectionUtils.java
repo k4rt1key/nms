@@ -15,9 +15,9 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
-import static org.nms.discovery.helpers.Utils.*;
+import static org.nms.discovery.helpers.DiscoveryUtils.*;
 
-public class PingAndPort
+public class ConnectionUtils
 {
     public static Future<JsonArray> pingIps(JsonArray ipArray)
     {

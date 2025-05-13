@@ -1,13 +1,11 @@
 package org.nms.api.handlers;
 
-import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
 import org.nms.Logger;
 import org.nms.api.helpers.HttpResponse;
-import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
@@ -16,7 +14,7 @@ import java.util.ArrayList;
 
 import static org.nms.App.vertx;
 
-public class DiscoveryHandler
+public class Discovery
 {
     public static void getAllDiscoveries(RoutingContext ctx)
     {

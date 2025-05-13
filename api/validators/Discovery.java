@@ -5,7 +5,7 @@ import org.nms.api.helpers.HttpResponse;
 import org.nms.api.helpers.Ip;
 import org.nms.constants.Fields;
 
-public class DiscoveryRequestValidator
+public class Discovery
 {
 
     private static final String INPUT_CREDENTIALS_FIELD = "credentials";

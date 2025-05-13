@@ -6,7 +6,7 @@ import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
 
-public class CredentialHandler
+public class Credential
 {
     public static void getAllCredentials(RoutingContext ctx)
     {

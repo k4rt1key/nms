@@ -5,7 +5,7 @@ import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
 
-public class MetricResultHandler
+public class MetricResult
 {
     public static void getAllPolledData(RoutingContext ctx)
     {

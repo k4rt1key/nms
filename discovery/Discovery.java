@@ -11,10 +11,10 @@ import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
 import org.nms.api.helpers.Ip;
 
-import org.nms.discovery.helpers.Db;
+import org.nms.discovery.helpers.DatabaseUtils;
 
-import static org.nms.discovery.helpers.Db.*;
-import static org.nms.discovery.helpers.PingAndPort.*;
+import static org.nms.discovery.helpers.DatabaseUtils.*;
+import static org.nms.discovery.helpers.ConnectionUtils.*;
 
 public class Discovery extends AbstractVerticle
 {
@@ -63,11 +63,11 @@ public class Discovery extends AbstractVerticle
         Promise<Void> promise = Promise.promise();
 
         // Step 1: Fetch discovery details
-        Db.fetchDiscoveryDetails(id)
+        DatabaseUtils.fetchDiscoveryDetails(id)
                 .compose(discovery ->
                 {
                     // Step 2: Update discovery status to RUNNING
-                    return Db.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS)
+                    return DatabaseUtils.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS)
                             .compose(v ->
                             {
                                 // Step 3: Delete existing results
@@ -92,7 +92,7 @@ public class Discovery extends AbstractVerticle
                 .compose(v ->
                 {
                     // Step 5: Update discovery status to COMPLETED
-                    return Db.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS);
+                    return DatabaseUtils.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS);
                 })
                 .onComplete(ar ->
                 {
@@ -103,7 +103,7 @@ public class Discovery extends AbstractVerticle
                     else
                     {
                         // If any step fails, update status to FAILED and complete with failure
-                        Db.updateDiscoveryStatus(id, Fields.DiscoveryResult.FAILED_STATUS)
+                        DatabaseUtils.updateDiscoveryStatus(id, Fields.DiscoveryResult.FAILED_STATUS)
                                 .onComplete(v -> promise.fail(ar.cause()));
                     }
                 });

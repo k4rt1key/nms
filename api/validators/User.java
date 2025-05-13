@@ -3,7 +3,7 @@ package org.nms.api.validators;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Fields;
 
-public class UserRequestValidator
+public class User
 {
 
     public static void getUserByIdRequestValidator(RoutingContext ctx)

@@ -8,7 +8,7 @@ import org.nms.constants.Fields;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProvisionRequestValidator
+public class Provision
 {
     private static final String INPUT_IPS_FIELD = "ips";
 

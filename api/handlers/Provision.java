@@ -5,7 +5,7 @@ import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.Logger;
-import org.nms.cache.MonitorCache;
+import org.nms.cache.Monitor;
 import org.nms.api.helpers.HttpResponse;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
@@ -13,7 +13,7 @@ import org.nms.database.helpers.DbEventBus;
 
 import java.util.ArrayList;
 
-public class ProvisionHandler
+public class Provision
 {
     public static void getAllProvisions(RoutingContext ctx)
     {
@@ -108,7 +108,7 @@ public class ProvisionHandler
                                     provisionArray.add(savedProvision.getJsonObject(0));
                                 }
                             }
-                            MonitorCache.insertMonitorArray(provisionArray);
+                            Monitor.insertMonitorArray(provisionArray);
                             HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionArray);
                         }
                         else
@@ -148,7 +148,7 @@ public class ProvisionHandler
                         var deletedMonitor = delAr.result();
                         if (!deletedMonitor.isEmpty())
                         {
-                            MonitorCache.deleteMetricGroups(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
+                            Monitor.deleteMetricGroups(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
                             HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
                         }
                         else
@@ -202,7 +202,7 @@ public class ProvisionHandler
                     if (getAr.succeeded())
                     {
                         var res = getAr.result();
-                        MonitorCache.updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
+                        Monitor.updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
                         HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
                     }
                     else

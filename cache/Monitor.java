@@ -12,7 +12,7 @@ import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
 
-public class MonitorCache
+public class Monitor
 {
     private static final ConcurrentHashMap<Integer, JsonObject> cachedMetricGroups = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();

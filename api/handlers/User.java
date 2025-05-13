@@ -6,14 +6,14 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.api.Server;
 import org.nms.api.helpers.HttpResponse;
+import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
-import org.nms.constants.Queries.*;
 
-public class UserHandler
+public class User
 {
     public static void getUsers(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(User.GET_ALL);
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.GET_ALL);
         queryRequest.onComplete(ar ->
         {
             if (ar.succeeded())
@@ -36,7 +36,7 @@ public class UserHandler
     public static void getUserById(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(User.GET_BY_ID, new JsonArray().add(id));
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id));
         queryRequest.onComplete(ar ->
         {
             if (ar.succeeded())
@@ -58,7 +58,7 @@ public class UserHandler
 
     public static void register(RoutingContext ctx)
     {
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")));
+        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")));
         checkRequest.compose(user ->
         {
             if (user != null && !user.isEmpty())
@@ -69,7 +69,7 @@ public class UserHandler
             return Future.succeededFuture();
         })
                 .compose(v ->
-                    DbEventBus.sendQueryExecutionRequest(User.INSERT, new JsonArray()
+                    DbEventBus.sendQueryExecutionRequest(Queries.User.INSERT, new JsonArray()
                             .add(ctx.body().asJsonObject().getString("name"))
                             .add(ctx.body().asJsonObject().getString("password"))
                     ))
@@ -98,7 +98,7 @@ public class UserHandler
     public static void login(RoutingContext ctx)
     {
         var username = ctx.body().asJsonObject().getString("name");
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(User.GET_BY_NAME, new JsonArray().add(username));
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(username));
         queryRequest.onComplete(ar ->
         {
             if (ar.succeeded())
@@ -134,7 +134,7 @@ public class UserHandler
         var id = Integer.parseInt(ctx.request().getParam("id"));
         var username = ctx.body().asJsonObject().getString("name");
         var password = ctx.body().asJsonObject().getString("password");
-        var updateRequest = DbEventBus.sendQueryExecutionRequest(User.UPDATE, new JsonArray()
+        var updateRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.UPDATE, new JsonArray()
                 .add(id)
                 .add(username)
                 .add(password)
@@ -156,7 +156,7 @@ public class UserHandler
     public static void deleteUser(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(User.GET_BY_ID, new JsonArray().add(id));
+        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id));
         checkRequest.onComplete(ar ->
         {
             if (ar.succeeded())
@@ -175,7 +175,7 @@ public class UserHandler
                     return;
                 }
 
-                var deleteRequest = DbEventBus.sendQueryExecutionRequest(User.DELETE, new JsonArray().add(id));
+                var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.User.DELETE, new JsonArray().add(id));
                 deleteRequest.onComplete(delAr ->
                 {
                     if (delAr.succeeded())
