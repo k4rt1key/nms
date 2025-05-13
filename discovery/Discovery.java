@@ -25,6 +25,7 @@ public class Discovery extends AbstractVerticle
         vertx.eventBus().localConsumer(Fields.EventBus.RUN_DISCOVERY_ADDRESS, message ->
         {
             var body = (JsonObject) message.body();
+
             var id = body.getInteger("id");
 
             runDiscoveryProcess(id)
@@ -47,6 +48,14 @@ public class Discovery extends AbstractVerticle
                         }
                     });
         });
+
+        Logger.debug("✅ Discovery Verticle Deployed, on thread [ " + Thread.currentThread().getName() + " ] ");
+    }
+
+    @Override
+    public void stop()
+    {
+        Logger.info("\uD83D\uDED1 Discovery Verticle Stopped");
     }
 
     private Future<Void> runDiscoveryProcess(int id)
@@ -58,7 +67,7 @@ public class Discovery extends AbstractVerticle
                 .compose(discovery ->
                 {
                     // Step 2: Update discovery status to RUNNING
-                    return Db.updateDiscoveryStatus(id, "RUNNING")
+                    return Db.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS)
                             .compose(v ->
                             {
                                 // Step 3: Delete existing results
@@ -83,7 +92,7 @@ public class Discovery extends AbstractVerticle
                 .compose(v ->
                 {
                     // Step 5: Update discovery status to COMPLETED
-                    return Db.updateDiscoveryStatus(id, "COMPLETED");
+                    return Db.updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS);
                 })
                 .onComplete(ar ->
                 {
@@ -94,7 +103,7 @@ public class Discovery extends AbstractVerticle
                     else
                     {
                         // If any step fails, update status to FAILED and complete with failure
-                        Db.updateDiscoveryStatus(id, "FAILED")
+                        Db.updateDiscoveryStatus(id, Fields.DiscoveryResult.FAILED_STATUS)
                                 .onComplete(v -> promise.fail(ar.cause()));
                     }
                 });
@@ -111,6 +120,7 @@ public class Discovery extends AbstractVerticle
                 .compose(pingResults ->
                 {
                     var pingPassedIps = processPingResults(id, pingResults);
+
 
                     // Step 2: Port Check - directly call without event bus
                     return checkPorts(pingPassedIps, port)
@@ -133,8 +143,9 @@ public class Discovery extends AbstractVerticle
                                         .put(Fields.PluginDiscoveryRequest.PORT, port)
                                         .put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
 
+
                                 // Send discovery request to plugin via event bus
-                                return sendDiscoveryRequest(discoveryRequest)
+                                return sendDiscoveryRequestToPlugin(discoveryRequest)
                                         .compose(credentialResults ->
                                                 processCredentialCheckResults(id, credentialResults));
                             });
@@ -154,7 +165,7 @@ public class Discovery extends AbstractVerticle
         return promise.future();
     }
 
-    private Future<JsonArray> sendDiscoveryRequest(JsonObject request)
+    private Future<JsonArray> sendDiscoveryRequestToPlugin(JsonObject request)
     {
         Promise<JsonArray> promise = Promise.promise();
 

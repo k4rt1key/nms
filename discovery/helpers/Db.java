@@ -56,6 +56,7 @@ public class Db
     public static JsonArray processPingResults(int id, JsonArray pingResults)
     {
         var pingCheckPassedIps = new JsonArray();
+
         var pingCheckFailedIps = new ArrayList<Tuple>();
 
         for (int i = 0; i < pingResults.size(); i++)

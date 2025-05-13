@@ -24,7 +24,9 @@ public class PingAndPort
         return App.vertx.executeBlocking(promise ->
         {
             var results = new JsonArray();
+
             Process process = null;
+
             BufferedReader reader = null;
 
             try
@@ -38,6 +40,7 @@ public class PingAndPort
 
                 // Collect valid IPs
                 var validIps = new JsonArray();
+
                 for (var i = 0; i < ipArray.size(); i++)
                 {
                     var ipObj = ipArray.getValue(i);
@@ -48,6 +51,7 @@ public class PingAndPort
                     }
 
                     var ip = ((String) ipObj).trim();
+
                     if (ip.isEmpty())
                     {
                         continue;
@@ -63,13 +67,14 @@ public class PingAndPort
                 }
 
                 // Prepare fping command
-                var command = new String[validIps.size() + 2];
+                var command = new String[validIps.size() + 3];
                 command[0] = "fping";
-                command[1] = "-c3";
+                command[1] = "-c1";
+                command[2] = "-q";
 
                 for (var i = 0; i < validIps.size(); i++)
                 {
-                    command[i + 2] = validIps.getString(i);
+                    command[i + 3] = validIps.getString(i);
                 }
 
                 var pb = new ProcessBuilder(command);
@@ -100,6 +105,7 @@ public class PingAndPort
 
                     var ip = parts[0].trim();
                     var stats = parts[1].trim();
+
                     processedIps.add(ip);
 
                     var isSuccess = !stats.contains("100%");
@@ -134,6 +140,7 @@ public class PingAndPort
             finally
             {
                 closeQuietly(reader);
+
                 if (process != null && process.isAlive())
                 {
                     try

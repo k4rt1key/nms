@@ -23,17 +23,20 @@ public class MonitorCache
         try
         {
             return DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
-                    .onSuccess(monitorArray ->
+                    .onComplete(monitorArrayResult ->
                     {
-                        if (!monitorArray.isEmpty())
+                        if(monitorArrayResult.succeeded())
                         {
-                            insertMonitorArray(monitorArray);
+                            if(!monitorArrayResult.result().isEmpty())
+                            {
+                                insertMonitorArray(monitorArrayResult.result());
+                            }
                         }
                     });
         }
+
         catch (Exception e)
         {
-            Logger.error("Error Populating Cache");
             return Future.failedFuture("Error Populating Cache");
         }
     }

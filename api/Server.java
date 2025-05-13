@@ -237,6 +237,6 @@ public class Server extends AbstractVerticle
     @Override
     public void stop()
     {
-        Logger.info("Http Server Stopped");
+        Logger.info("\uD83D\uDED1 Http Server Stopped");
     }
 }

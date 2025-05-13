@@ -51,7 +51,7 @@ public class Database extends AbstractVerticle
             {
                 if(allSchemasCreated.succeeded())
                 {
-                    Logger.info("✅ Successfully deployed Database");
+                    Logger.info("✅ Successfully deployed Database Verticle");
                     startPromise.complete();
                 }
                 else
@@ -75,6 +75,8 @@ public class Database extends AbstractVerticle
                 {
                     if(clientClose.succeeded())
                     {
+                        Logger.info("\uD83D\uDED1 Database Verticle Stopped");
+
                         stopPromise.complete();
                     }
                     else

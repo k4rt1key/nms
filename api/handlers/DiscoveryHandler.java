@@ -1,20 +1,16 @@
 package org.nms.api.handlers;
 
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
 import org.nms.Logger;
 import org.nms.api.helpers.HttpResponse;
-import org.nms.api.helpers.Ip;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.database.helpers.DbEventBus;
 
 import java.util.ArrayList;
-import java.util.List;
 
 import static org.nms.App.vertx;
 
@@ -22,327 +18,388 @@ public class DiscoveryHandler
 {
     public static void getAllDiscoveries(RoutingContext ctx)
     {
-       DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL)
-                .onSuccess(discoveries ->
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL);
+        queryRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discoveries = ar.result();
+                if (discoveries.isEmpty())
                 {
-                    // Discoveries not found
-                    if (discoveries.isEmpty())
-                    {
-                        HttpResponse.sendFailure(ctx, 404, "No discoveries found");
-                        return;
-                    }
-
-                    // Discoveries found
-                    HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                    HttpResponse.sendFailure(ctx, 404, "No discoveries found");
+                    return;
+                }
+                HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void getDiscoveryById(RoutingContext ctx)
     {
-        int id = Integer.parseInt(ctx.request().getParam("id"));
-
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID,  new JsonArray().add(id))
-                .onSuccess(discovery ->
+        var id = Integer.parseInt(ctx.request().getParam("id"));
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+        queryRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discovery = ar.result();
+                if (discovery.isEmpty())
                 {
-                    // Discovery not found
-                    if (discovery.isEmpty())
-                    {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                        return;
-                    }
-
-                    // Discovery found
-                    HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    return;
+                }
+                HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void getDiscoveryResultsById(RoutingContext ctx)
     {
-        int id = Integer.parseInt(ctx.request().getParam("id"));
-
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id))
-                .onSuccess(discovery ->
+        var id = Integer.parseInt(ctx.request().getParam("id"));
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id));
+        queryRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discovery = ar.result();
+                if (discovery.isEmpty())
                 {
-                    // Discovery not found
-                    if (discovery.isEmpty())
-                    {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                        return;
-                    }
-
-                    // Discovery found
-                    HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    return;
+                }
+                HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void getDiscoveryResults(RoutingContext ctx)
     {
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL_WITH_RESULTS)
-                .onSuccess(discoveries ->
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL_WITH_RESULTS);
+        queryRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discoveries = ar.result();
+                if (discoveries.isEmpty())
                 {
-                    // Discoveries not found
-                    if (discoveries.isEmpty())
-                    {
-                        HttpResponse.sendFailure(ctx, 404, "No discoveries found");
-                        return;
-                    }
-
-                    // Discoveries found
-                    HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                    HttpResponse.sendFailure(ctx, 404, "No discoveries found");
+                    return;
+                }
+                HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void createDiscovery(RoutingContext ctx)
     {
         var name = ctx.body().asJsonObject().getString("name");
-
         var ip = ctx.body().asJsonObject().getString("ip");
-
         var ipType = ctx.body().asJsonObject().getString("ip_type");
-
         var credentials = ctx.body().asJsonObject().getJsonArray("credentials");
-
         var port = ctx.body().asJsonObject().getInteger("port");
 
-        // Step 1: Create discovery
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT ,new JsonArray().add(name).add(ip).add(ipType).add(port))
-                .onSuccess(discovery ->
+        var insertRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT, new JsonArray().add(name).add(ip).add(ipType).add(port));
+        insertRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discovery = ar.result();
+                if (discovery.isEmpty())
                 {
-                    // !!!! Discovery Not Created
-                    if (discovery.isEmpty())
+                    HttpResponse.sendFailure(ctx, 400, "Failed to create discovery");
+                    return;
+                }
+
+                var credentialsToAdd = new ArrayList<Tuple>();
+                var discoveryId = discovery.getJsonObject(0).getInteger(Fields.Discovery.ID);
+
+                for (var i = 0; i < credentials.size(); i++)
+                {
+                    var credentialId = Integer.parseInt(credentials.getString(i));
+                    credentialsToAdd.add(Tuple.of(discoveryId, credentialId));
+                }
+
+                var credentialRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
+                credentialRequest.onComplete(credAr ->
+                {
+                    if (credAr.succeeded())
                     {
-                        HttpResponse.sendFailure(ctx, 400, "Failed to create discovery");
-                        return;
+                        var discoveryCredentials = credAr.result();
+                        if (discoveryCredentials.isEmpty())
+                        {
+                            HttpResponse.sendFailure(ctx, 400, "Failed to add credentials to discovery");
+                            return;
+                        }
+
+                        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId));
+                        getRequest.onComplete(getAr ->
+                        {
+                            if (getAr.succeeded())
+                            {
+                                var discoveryWithCredentials = getAr.result();
+                                HttpResponse.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials);
+                            }
+                            else
+                            {
+                                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", getAr.cause().getMessage());
+                            }
+                        });
                     }
-
-                    // Step 2: Add credentials to discovery
-                    List<Tuple> credentialsToAdd = new ArrayList<>();
-
-                    var discoveryId = discovery.getJsonObject(0).getInteger(Fields.Discovery.ID);
-
-                    for (int i = 0; i < credentials.size(); i++)
+                    else
                     {
-                        var credentialId = Integer.parseInt(credentials.getString(i));
-
-                        credentialsToAdd.add(Tuple.of(discoveryId, credentialId));
+                        var rollbackRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(discoveryId));
+                        rollbackRequest.onComplete(rollbackAr ->
+                        {
+                            if (rollbackAr.failed())
+                            {
+                                Logger.error("Failed to rollback discovery creation: " + rollbackAr.cause().getMessage());
+                            }
+                        });
+                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", credAr.cause().getMessage());
                     }
-
-                    // Save Credentials Into DB
-                    DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd)
-                            .onSuccess(discoveryCredentials ->
-                            {
-                                // !!! Credentials Not Created
-                                if (discoveryCredentials.isEmpty())
-                                {
-                                    HttpResponse.sendFailure(ctx, 400, "Failed to add credentials to discovery");
-                                    return;
-                                }
-
-                                // Step 3: Get complete discovery with credentials
-                                DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId))
-                                        .onSuccess(discoveryWithCredentials -> HttpResponse.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials))
-                                        .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
-                            })
-                            .onFailure(err ->
-                            {
-                                // Rollback discovery creation if adding credentials fails
-                                DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(discoveryId))
-                                        .onFailure(rollbackErr -> Logger.error("Failed to rollback discovery creation: " + rollbackErr.getMessage()));
-
-                                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage());
-                            });
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                });
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void updateDiscovery(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-
-        // First check if discovery exists
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                .onSuccess(discovery ->
+        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+        checkRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discovery = ar.result();
+                if (discovery.isEmpty())
                 {
-                    // Step-1: Check if discovery Exist
-                    if (discovery.isEmpty())
+                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    return;
+                }
+
+                if (discovery.getJsonObject(0).getString(Fields.Discovery.STATUS).equals(Fields.DiscoveryResult.COMPLETED_STATUS))
+                {
+                    HttpResponse.sendFailure(ctx, 400, "Discovery Already Run");
+                    return;
+                }
+
+                var name = ctx.body().asJsonObject().getString("name");
+                var ip = ctx.body().asJsonObject().getString("ip");
+                var ipType = ctx.body().asJsonObject().getString("ip_type");
+                var port = ctx.body().asJsonObject().getInteger("port");
+
+                var updateRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port));
+                updateRequest.onComplete(updateAr ->
+                {
+                    if (updateAr.succeeded())
                     {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                        return;
-                    }
+                        var updatedDiscovery = updateAr.result();
+                        if (updatedDiscovery.isEmpty())
+                        {
+                            HttpResponse.sendFailure(ctx, 400, "Failed to update discovery");
+                            return;
+                        }
 
-                    // Discovery Already run
-                    if(discovery.getJsonObject(0).getString(Fields.Discovery.STATUS).equals(Fields.DiscoveryResult.COMPLETED_STATUS))
-                    {
-                        HttpResponse.sendFailure(ctx, 400, "Discovery Already Run");
-                        return;
-                    }
-
-                    // Discovery found, proceed with update
-                    var name = ctx.body().asJsonObject().getString("name");
-
-                    var ip = ctx.body().asJsonObject().getString("ip");
-
-                    var ipType = ctx.body().asJsonObject().getString("ip_type");
-
-                    var port = ctx.body().asJsonObject().getInteger("port");
-
-                    // Update Discovery
-                    DbEventBus.sendQueryExecutionRequest(Queries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port))
-                            .onSuccess(updatedDiscovery ->
+                        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+                        getRequest.onComplete(getAr ->
+                        {
+                            if (getAr.succeeded())
                             {
-                                // !!! Discovery Not Updated
-                                if (updatedDiscovery.isEmpty())
-                                {
-                                    HttpResponse.sendFailure(ctx, 400, "Failed to update discovery");
-                                    return;
-                                }
-
-                                // Get updated discovery with credentials
-                                DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                                        .onSuccess(discoveryWithCredentials -> HttpResponse.sendSuccess(ctx, 200, "Discovery updated successfully", discoveryWithCredentials))
-                                        .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
-                            })
-                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                                var discoveryWithCredentials = getAr.result();
+                                HttpResponse.sendSuccess(ctx, 200, "Discovery updated successfully", discoveryWithCredentials);
+                            }
+                            else
+                            {
+                                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", getAr.cause().getMessage());
+                            }
+                        });
+                    }
+                    else
+                    {
+                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", updateAr.cause().getMessage());
+                    }
+                });
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void updateDiscoveryCredentials(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-
-        // Step-1: Check if discovery exists
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                .onSuccess(discovery ->
+        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+        checkRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var discovery = ar.result();
+                if (discovery.isEmpty())
                 {
-                    // !!! Discovery Not Found
-                    if (discovery.isEmpty())
+                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    return;
+                }
+
+                var addCredentials = ctx.body().asJsonObject().getJsonArray("add_credentials");
+                var removeCredentials = ctx.body().asJsonObject().getJsonArray("remove_credentials");
+
+                if (addCredentials != null && !addCredentials.isEmpty())
+                {
+                    var credentialsToAdd = new ArrayList<Tuple>();
+                    for (var i = 0; i < addCredentials.size(); i++)
                     {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                        return;
+                        var credentialId = Integer.parseInt(addCredentials.getString(i));
+                        credentialsToAdd.add(Tuple.of(id, credentialId));
                     }
 
-                    var addCredentials = ctx.body().asJsonObject().getJsonArray("add_credentials");
-
-                    var removeCredentials = ctx.body().asJsonObject().getJsonArray("remove_credentials");
-
-                    // Step 2: Add credentials to discovery if any
-                    List<Tuple> credentialsToAdd = new ArrayList<>();
-
-                    if (addCredentials != null && !addCredentials.isEmpty()) {
-                        for (int i = 0; i < addCredentials.size(); i++)
+                    var addRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
+                    addRequest.onComplete(addAr ->
+                    {
+                        if (addAr.succeeded())
                         {
-                            var credentialId = Integer.parseInt(addCredentials.getString(i));
-                            credentialsToAdd.add(Tuple.of(id, credentialId));
+                            processRemoveCredentials(ctx, id, removeCredentials);
                         }
-
-                        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd)
-                                .onSuccess(addedCredentials ->
-                                {
-                                    // Step 2: Remove credentials if any
-                                    processRemoveCredentials(ctx, id, removeCredentials);
-                                })
-                                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
-                    }
-                    else
-                    {
-                        // If no credentials to add, proceed to remove credentials
-                        processRemoveCredentials(ctx, id, removeCredentials);
-                    }
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                        else
+                        {
+                            HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", addAr.cause().getMessage());
+                        }
+                    });
+                }
+                else
+                {
+                    processRemoveCredentials(ctx, id, removeCredentials);
+                }
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
-    // Helper method to process removing credentials
+    // Helper
     private static void processRemoveCredentials(RoutingContext ctx, int discoveryId, JsonArray removeCredentials)
     {
         if (removeCredentials != null && !removeCredentials.isEmpty())
         {
-            List<Tuple> credentialsToRemove = new ArrayList<>();
-
-            for (int i = 0; i < removeCredentials.size(); i++)
+            var credentialsToRemove = new ArrayList<Tuple>();
+            for (var i = 0; i < removeCredentials.size(); i++)
             {
                 var credentialId = Integer.parseInt(removeCredentials.getString(i));
                 credentialsToRemove.add(Tuple.of(discoveryId, credentialId));
             }
 
-            DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE_CREDENTIAL, credentialsToRemove)
-                    .onSuccess(v ->
-                    {
-                        // Return updated discovery with credentials
-                        returnUpdatedDiscovery(ctx, discoveryId);
-                    })
-                    .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+            var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE_CREDENTIAL, credentialsToRemove);
+            deleteRequest.onComplete(ar ->
+            {
+                if (ar.succeeded())
+                {
+                    returnUpdatedDiscovery(ctx, discoveryId);
+                }
+                else
+                {
+                    HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                }
+            });
         }
         else
         {
-            // If no credentials to remove, just return the updated discovery
             returnUpdatedDiscovery(ctx, discoveryId);
         }
     }
 
-    // Helper method to return updated discovery
+    // Helper
     private static void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId)
     {
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId))
-                .onSuccess(updatedDiscovery -> HttpResponse.sendSuccess(ctx, 200, "Discovery credentials updated successfully", updatedDiscovery))
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId));
+        getRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var updatedDiscovery = ar.result();
+                HttpResponse.sendSuccess(ctx, 200, "Discovery credentials updated successfully", updatedDiscovery);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void deleteDiscovery(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
+        var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(id));
+        deleteRequest.onComplete(ar ->
+        {
+            if (ar.succeeded()) {
+                var discovery = ar.result();
+                if (discovery.isEmpty()) {
+                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    return;
+                }
 
-        // First check if discovery exists
-        DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(id))
-                .onSuccess(discovery ->
-                {
-                    if (discovery.isEmpty())
-                    {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                        return;
-                    }
+                HttpResponse.sendSuccess(ctx, 200, "Discovery deleted successfully", discovery);
 
-                    // Discovery found, proceed with delete
-                    DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                            .onSuccess(deletedDiscovery -> HttpResponse.sendSuccess(ctx, 200, "Discovery deleted successfully", discovery))
-                            .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
-                })
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+            }
+        });
     }
 
     public static void runDiscovery(RoutingContext ctx)
     {
         try
         {
-            // Step 1: Extract and validate ID
-            int id = Integer.parseInt(ctx.request().getParam("id"));
-
-            // Step 2: Check if discovery exists
-            DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                    .onSuccess(discovery ->
+            var id = Integer.parseInt(ctx.request().getParam("id"));
+            var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+            checkRequest.onComplete(ar ->
+            {
+                if (ar.succeeded())
+                {
+                    var discovery = ar.result();
+                    if (discovery.isEmpty())
                     {
-                        if (discovery.isEmpty())
-                        {
-                            HttpResponse.sendFailure(ctx, 404, "Discovery not found");
-                            return;
-                        }
+                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                        return;
+                    }
 
-                        // Step 3: Send discovery run request via event bus to the Discovery
-                        vertx.eventBus().request(
-                                Fields.EventBus.RUN_DISCOVERY_ADDRESS,
-                                new JsonObject().put("id", id)
-                        );
-
-                        // Step 4: Return immediate success response to the client
-                        HttpResponse.sendSuccess(ctx, 202, "Discovery request with id " + id + " accepted and is being processed",
-                                new JsonArray());
-                    })
-                    .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", err.getMessage()));
+                    vertx.eventBus().request(
+                            Fields.EventBus.RUN_DISCOVERY_ADDRESS,
+                            new JsonObject().put("id", id)
+                    );
+                    HttpResponse.sendSuccess(ctx, 202, "Discovery request with id " + id + " accepted and is being processed",
+                            new JsonArray());
+                }
+                else
+                {
+                    HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                }
+            });
         }
         catch (Exception e)
         {

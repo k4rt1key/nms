@@ -23,6 +23,15 @@ public class Plugin extends AbstractVerticle
             executePlugin(request)
                     .onComplete(ar -> message.reply(ar.result()));
         });
+
+        Logger.info("✅ Plugin Verticle Deployed");
+    }
+
+
+    @Override
+    public void stop()
+    {
+        Logger.info("\uD83D\uDED1 Plugin Verticle Stopped");
     }
 
     /**

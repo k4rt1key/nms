@@ -62,6 +62,8 @@ public class Fields
 
         public static final String PENDING_STATUS = "PENDING";
 
+        public static final String FAILED_STATUS = "FAILED";
+
         public static final String COMPLETED_STATUS = "COMPLETED";
 
         public static final String MESSAGE = "message";

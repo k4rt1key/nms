@@ -9,8 +9,19 @@ public class MetricResultHandler
 {
     public static void getAllPolledData(RoutingContext ctx)
     {
-        DbEventBus.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL)
-                .onSuccess((polledData -> HttpResponse.sendSuccess(ctx, 200,"Polled Data", polledData)))
-                .onFailure(err -> HttpResponse.sendFailure(ctx, 500, "Something Went Wrong"));
+        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL);
+
+        queryRequest.onComplete(ar ->
+        {
+            if (ar.succeeded())
+            {
+                var polledData = ar.result();
+                HttpResponse.sendSuccess(ctx, 200, "Polled Data", polledData);
+            }
+            else
+            {
+                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong");
+            }
+        });
     }
 }

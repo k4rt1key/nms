@@ -12,6 +12,9 @@ public class Config
 
     public static final Integer HTTP_PORT = 8080;
 
+    public static final Integer MAX_WORKER_EXECUTE_TIME = 1029;
+
+    // ===== DB =====
     public static final Integer DB_PORT = 5000;
 
     public static final String DB_URL = "localhost";
@@ -22,6 +25,7 @@ public class Config
 
     public static final String DB_PASSWORD = "nms";
 
+    // ====== Timeouts =====
     public static final int PORT_TIMEOUT = 1;
 
     public static final int INITIAL_PLUGIN_OVERHEAD_TIME = 5;
