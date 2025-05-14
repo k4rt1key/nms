@@ -4,12 +4,17 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.Logger;
-import org.nms.cache.Monitor;
-import org.nms.api.helpers.HttpResponse;
+import static org.nms.App.logger;
+import static org.nms.constants.Fields.DiscoveryCredential.DISCOVERY_ID;
+import static org.nms.constants.Fields.PluginDiscoveryRequest.IPS;
+import static org.nms.constants.Fields.PluginPollingRequest.METRIC_GROUPS;
+
+import org.nms.Cache;
+import org.nms.api.Utility;
+import org.nms.api.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.helpers.DbEventBus;
+import org.nms.database.DbUtility;
 
 import java.util.ArrayList;
 
@@ -17,204 +22,238 @@ public class Provision
 {
     public static void getAllProvisions(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_ALL);
-        queryRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_ALL).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var monitors = ar.result();
+                var monitors = asyncResult.result();
+
                 if (monitors.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "No provisions found");
+                    Utility.sendFailure(ctx, 404, "No provisions found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Provisions found", monitors);
+                Utility.sendSuccess(ctx, 200, "Provisions found", monitors);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void getProvisionById(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id));
-        queryRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var monitor = ar.result();
+                var monitor = asyncResult.result();
+
                 if (monitor.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Provision not found");
+                    Utility.sendFailure(ctx, 404, "Provision not found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Provision found", monitor);
+
+                Utility.sendSuccess(ctx, 200, "Provision found", monitor);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void createProvision(RoutingContext ctx)
     {
-        var discoveryId = Integer.parseInt(ctx.body().asJsonObject().getString("discovery_id"));
-        var ips = ctx.body().asJsonObject().getJsonArray("ips");
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(discoveryId));
-        queryRequest.onComplete(ar ->
+        if(Validators.validateProvisionCreation(ctx)) { return; }
+
+        var discoveryId = ctx.body().asJsonObject().getString(DISCOVERY_ID);
+
+        var ips = ctx.body().asJsonObject().getJsonArray(IPS);
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discoveriesWithResult = ar.result();
+                var discoveriesWithResult = asyncResult.result();
+
                 if (discoveriesWithResult == null || discoveriesWithResult.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Failed To Get Discovery with that id");
+                    Utility.sendFailure(ctx, 404, "Failed To Get Discovery with that id");
+
                     return;
                 }
 
                 if (discoveriesWithResult.getJsonObject(0).getString(Fields.Discovery.STATUS).equals(Fields.Discovery.PENDING_STATUS))
                 {
-                    HttpResponse.sendFailure(ctx, 409, "Can't provision pending discovery");
+                    Utility.sendFailure(ctx, 409, "Can't provision pending discovery");
+
                     return;
                 }
 
                 var results = discoveriesWithResult.getJsonObject(0).getJsonArray(Fields.Discovery.RESULT_JSON);
+
                 var addMonitorsFuture = new ArrayList<Future>();
 
                 if (results != null && !results.isEmpty())
                 {
                     for (var j = 0; j < ips.size(); j++)
                     {
-                        addMonitorsFuture.add(DbEventBus.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(discoveryId).add(ips.getString(j))));
-                        Logger.debug(ips.getString(j));
+                        addMonitorsFuture.add(DbUtility.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(discoveryId).add(ips.getString(j))));
                     }
 
                     var joinFuture = CompositeFuture.join(addMonitorsFuture);
-                    joinFuture.onComplete(joinAr ->
+
+                    joinFuture.onComplete(provisionsInsertion ->
                     {
-                        if (joinAr.succeeded())
+                        if (provisionsInsertion.succeeded())
                         {
-                            var savedProvisions = joinAr.result();
+                            var savedProvisions = provisionsInsertion.result();
+
                             var provisionArray = new JsonArray();
+
                             for (var i = 0; i < savedProvisions.size(); i++)
                             {
                                 if (savedProvisions.resultAt(i) != null)
                                 {
                                     var savedProvision = (JsonArray) savedProvisions.resultAt(i);
+
                                     provisionArray.add(savedProvision.getJsonObject(0));
                                 }
                             }
-                            Monitor.insertMonitorArray(provisionArray);
-                            HttpResponse.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionArray);
+
+                            Cache.insertMonitorArray(provisionArray);
+
+                            Utility.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionArray);
                         }
                         else
                         {
-                            HttpResponse.sendFailure(ctx, 500, "Error during provisioning", joinAr.cause().getMessage());
+                            Utility.sendFailure(ctx, 500, "Error during provisioning", provisionsInsertion.cause().getMessage());
                         }
                     });
                 }
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 400, "Discovery Not Found", "");
+                Utility.sendFailure(ctx, 400, "Discovery Not Found");
             }
         });
     }
 
     public static void deleteProvision(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if( id == -1 ){ return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var provision = ar.result();
+                var provision = asyncResult.result();
+
                 if (provision.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Provision not found");
+                    Utility.sendFailure(ctx, 404, "Provision not found");
+
                     return;
                 }
 
-                var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.DELETE, new JsonArray().add(id));
-                deleteRequest.onComplete(delAr ->
+                DbUtility.sendQueryExecutionRequest(Queries.Monitor.DELETE, new JsonArray().add(id)).onComplete(monitorDeletion ->
                 {
-                    if (delAr.succeeded())
+                    if (monitorDeletion.succeeded())
                     {
-                        var deletedMonitor = delAr.result();
+                        var deletedMonitor = monitorDeletion.result();
+
                         if (!deletedMonitor.isEmpty())
                         {
-                            Monitor.deleteMetricGroups(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
-                            HttpResponse.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
+                            Cache.deleteMetricGroups(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
+
+                            Utility.sendSuccess(ctx, 200, "Provision deleted successfully", provision);
                         }
                         else
                         {
-                            HttpResponse.sendFailure(ctx, 400, "Failed to delete Provision");
+                            Utility.sendFailure(ctx, 400, "Failed to delete Provision");
                         }
                     }
                     else
                     {
-                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", delAr.cause().getMessage());
+                        Utility.sendFailure(ctx, 500, "Something Went Wrong", monitorDeletion.cause().getMessage());
                     }
                 });
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void updateMetric(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var metrics = ctx.body().asJsonObject().getJsonArray("metrics");
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.compose(v ->
-        {
-            if (v.isEmpty())
-            {
-                HttpResponse.sendFailure(ctx, 404, "Monitor with id " + id + " Not exist");
-                return Future.failedFuture("Monitor with id " + id + " Not exist");
-            }
+        if(Validators.validateProvisionUpdation(ctx)) { return; }
 
-            var updateMetricGroupsFuture = new ArrayList<Future<JsonArray>>();
-            for (var i = 0; i < metrics.size(); i++)
-            {
-                var name = metrics.getJsonObject(i).getString(Fields.MetricGroup.NAME);
-                var pollingInterval = metrics.getJsonObject(i).getInteger(Fields.MetricGroup.POLLING_INTERVAL);
-                var isEnabled = metrics.getJsonObject(i).getBoolean(Fields.MetricGroup.IS_ENABLED);
-                updateMetricGroupsFuture.add(DbEventBus.sendQueryExecutionRequest(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
-            }
+        var id = ctx.body().asJsonObject().getString(Fields.Monitor.ID);
 
-            return Future.join(updateMetricGroupsFuture);
-        }).onComplete(ar ->
-        {
-            if (ar.succeeded())
-            {
-                var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id));
-                getRequest.onComplete(getAr ->
+        var metrics = ctx.body().asJsonObject().getJsonArray(METRIC_GROUPS);
+
+        DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+                .compose(monitor ->
                 {
-                    if (getAr.succeeded())
+                    if (monitor.isEmpty())
                     {
-                        var res = getAr.result();
-                        Monitor.updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
-                        HttpResponse.sendSuccess(ctx, 200, "Updated Provision", res);
+                        Utility.sendFailure(ctx, 404, "Monitor with id " + id + " Not exist");
+
+                        return Future.failedFuture("Monitor with id " + id + " Not exist");
+                    }
+
+                    var updateMetricGroupsFuture = new ArrayList<Future<JsonArray>>();
+
+                    for (var i = 0; i < metrics.size(); i++)
+                    {
+                        var name = metrics.getJsonObject(i).getString(Fields.MetricGroup.NAME);
+
+                        var pollingInterval = metrics.getJsonObject(i).getInteger(Fields.MetricGroup.POLLING_INTERVAL);
+
+                        var isEnabled = metrics.getJsonObject(i).getBoolean(Fields.MetricGroup.IS_ENABLED);
+
+                        updateMetricGroupsFuture.add(DbUtility.sendQueryExecutionRequest(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
+                    }
+
+                    return Future.join(updateMetricGroupsFuture);
+
+                }).onComplete(asyncResult ->
+                {
+                    if (asyncResult.succeeded())
+                    {
+                        DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(monitorResult ->
+                        {
+                            if (monitorResult.succeeded())
+                            {
+                                var res = monitorResult.result();
+
+                                Cache.updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
+
+                                Utility.sendSuccess(ctx, 200, "Updated Provision", res);
+                            }
+                            else
+                            {
+                                Utility.sendFailure(ctx, 500, "Failed To Update Discovery", asyncResult.cause().getMessage());
+                            }
+                        });
                     }
                     else
                     {
-                        HttpResponse.sendFailure(ctx, 500, "Failed To Update Discovery", getAr.cause().getMessage());
+                        Utility.sendFailure(ctx, 500, "Error Updating Metric groups", asyncResult.cause().getMessage());
                     }
                 });
-            }
-            else
-            {
-                HttpResponse.sendFailure(ctx, 500, "Error Updating Metric groups", ar.cause().getMessage());
-            }
-        });
     }
 }

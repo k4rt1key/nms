@@ -7,17 +7,13 @@ import io.vertx.ext.auth.KeyStoreOptions;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.JWTAuthHandler;
 
 import org.nms.App;
-import org.nms.Logger;
+import static org.nms.App.logger;
 import org.nms.api.handlers.*;
-import org.nms.api.auth.AuthMiddleware;
-import org.nms.api.validators.Credential;
-import org.nms.api.validators.Discovery;
-import org.nms.api.validators.Provision;
-import org.nms.api.validators.User;
 import org.nms.constants.Config;
 
 
@@ -62,7 +58,7 @@ public class Server extends AbstractVerticle
 
         router.route()
                 .handler(jwtAuthHandler)
-                .handler(AuthMiddleware::authenticate);
+                .handler(this::authenticate);
 
         // ===== Configure Credential Routes =====
         setupCredentialRoutes(router);
@@ -79,17 +75,17 @@ public class Server extends AbstractVerticle
         // ===== Configure Router To Server =====
         server.requestHandler(router);
 
-        // ===== Listen on Port... =====
+        // ===== Listen on Port =====
         server.listen(Config.HTTP_PORT, http ->
         {
             if(http.succeeded())
             {
-                Logger.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
+                logger.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
                 startPromise.complete();
             }
             else
             {
-                Logger.error("Failed To Start HTTP Server => " + http.cause());
+                logger.error("Failed To Start HTTP Server => " + http.cause());
                 startPromise.fail(http.cause());
             }
         });
@@ -104,28 +100,23 @@ public class Server extends AbstractVerticle
 
         userRouter.get("/:id")
                 .handler(jwtAuthHandler)
-                .handler(AuthMiddleware::authenticate)
-                .handler(User::getUserByIdRequestValidator)
+                .handler(this::authenticate)
                 .handler(org.nms.api.handlers.User::getUserById);
 
         userRouter.post("/login")
-                .handler(User::loginRequestValidator)
                 .handler(org.nms.api.handlers.User::login);
 
         userRouter.post("/register")
-                .handler(User::registerRequestValidator)
                 .handler(org.nms.api.handlers.User::register);
 
         userRouter.patch("/:id")
                 .handler(jwtAuthHandler)
-                .handler(AuthMiddleware::authenticate)
-                .handler(User::updateUserRequestValidator)
+                .handler(this::authenticate)
                 .handler(org.nms.api.handlers.User::updateUser);
 
         userRouter.delete("/:id")
                 .handler(jwtAuthHandler)
-                .handler(AuthMiddleware::authenticate)
-                .handler(User::deleteUserRequestValidator)
+                .handler(this::authenticate)
                 .handler(org.nms.api.handlers.User::deleteUser);
 
         router.route(USER_ENDPOINT).subRouter(userRouter);
@@ -139,19 +130,15 @@ public class Server extends AbstractVerticle
                 .handler(org.nms.api.handlers.Provision::getAllProvisions);
 
         provisionRouter.get("/:id")
-                .handler(Provision::getProvisionByIdRequestValidator)
                 .handler(org.nms.api.handlers.Provision::getProvisionById);
 
         provisionRouter.post("/")
-                .handler(Provision::createProvisionRequestValidator)
                 .handler(org.nms.api.handlers.Provision::createProvision);
 
         provisionRouter.patch("/:id")
-                .handler(Provision::updateProvisionRequestValidator)
                 .handler(org.nms.api.handlers.Provision::updateMetric);
 
         provisionRouter.delete("/:id")
-                .handler(Provision::deleteProvisionRequestValidator)
                 .handler(org.nms.api.handlers.Provision::deleteProvision);
 
         router.route(PROVISION_ENDPOINT).subRouter(provisionRouter);
@@ -162,7 +149,6 @@ public class Server extends AbstractVerticle
         var discoveryRouter = Router.router(vertx);
 
         discoveryRouter.get("/results/:id")
-                .handler(Discovery::getDiscoveryByIdRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::getDiscoveryResultsById);
 
         discoveryRouter.get("/results")
@@ -172,27 +158,21 @@ public class Server extends AbstractVerticle
                 .handler(org.nms.api.handlers.Discovery::getAllDiscoveries);
 
         discoveryRouter.get("/:id")
-                .handler(Discovery::getDiscoveryByIdRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::getDiscoveryById);
 
         discoveryRouter.post("/")
-                .handler(Discovery::createDiscoveryRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::createDiscovery);
 
         discoveryRouter.post("/run/:id")
-                .handler(Discovery::runDiscoveryRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::runDiscovery);
 
         discoveryRouter.patch("/:id")
-                .handler(Discovery::updateDiscoveryRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::updateDiscovery);
 
         discoveryRouter.patch("/credential/:id")
-                .handler(Discovery::updateDiscoveryCredentialsRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::updateDiscoveryCredentials);
 
         discoveryRouter.delete("/:id")
-                .handler(Discovery::deleteDiscoveryRequestValidator)
                 .handler(org.nms.api.handlers.Discovery::deleteDiscovery);
 
         router.route(DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
@@ -206,19 +186,15 @@ public class Server extends AbstractVerticle
                 .handler(org.nms.api.handlers.Credential::getAllCredentials);
 
         credentialRouter.get("/:id")
-                .handler(Credential::getCredentialByIdRequestValidator)
                 .handler(org.nms.api.handlers.Credential::getCredentialById);
 
         credentialRouter.post("/")
-                .handler(Credential::createCredentialRequestValidator)
                 .handler(org.nms.api.handlers.Credential::createCredential);
 
         credentialRouter.patch("/:id")
-                .handler(Credential::updateCredentialByIdRequestValidator)
                 .handler(org.nms.api.handlers.Credential::updateCredential);
 
         credentialRouter.delete("/:id")
-                .handler(Credential::deleteCredentialByIdRequestValidator)
                 .handler(org.nms.api.handlers.Credential::deleteCredential);
 
         router.route(CREDENTIALS_ENDPOINT).subRouter(credentialRouter);
@@ -234,9 +210,20 @@ public class Server extends AbstractVerticle
         router.route(POLLING_ENDPOINT).subRouter(pollingRouter);
     }
 
+    private void authenticate(RoutingContext ctx)
+    {
+        if(ctx.user() == null || ctx.user().principal().isEmpty() || ctx.user().expired())
+        {
+            Utility.sendFailure(ctx, 401, "Please login to continue");
+            return;
+        }
+
+        ctx.next();
+    }
+
     @Override
     public void stop()
     {
-        Logger.info("\uD83D\uDED1 Http Server Stopped");
+        logger.info("\uD83D\uDED1 Http Server Stopped");
     }
 }

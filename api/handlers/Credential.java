@@ -2,163 +2,206 @@ package org.nms.api.handlers;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.api.helpers.HttpResponse;
+import org.nms.api.Utility;
+import org.nms.api.Validators;
+import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.helpers.DbEventBus;
+import org.nms.database.DbUtility;
 
 public class Credential
 {
     public static void getAllCredentials(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_ALL);
-        queryRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var credentials = ar.result();
+                var credentials = asyncResult.result();
+
                 if (credentials.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "No credentials found");
+                    Utility.sendFailure(ctx, 404, "No credentials found");
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Credentials found", credentials);
+
+                Utility.sendSuccess(ctx, 200, "Credentials found", credentials);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void getCredentialById(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
-        queryRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        var queryRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+
+        queryRequest.onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var credential = ar.result();
+                var credential = asyncResult.result();
+
                 if (credential.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Credential not found");
+                    Utility.sendFailure(ctx, 404, "Credential not found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Credential found", credential);
+                Utility.sendSuccess(ctx, 200, "Credential found", credential);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void createCredential(RoutingContext ctx)
     {
+        Validators.validateBody(ctx);
+
+        if (
+                Validators.validateInputFields(ctx, new String[]{
+                                                        Fields.Credential.NAME,
+                                                        Fields.Credential.USERNAME,
+                                                        Fields.Credential.PASSWORD}, true)
+        ) { return; }
+
         var name = ctx.body().asJsonObject().getString("name");
+
         var username = ctx.body().asJsonObject().getString("username");
+
         var password = ctx.body().asJsonObject().getString("password");
-        var insertRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
+
+        DbUtility.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
                 .add(name)
                 .add(username)
                 .add(password)
-        );
-        insertRequest.onComplete(ar ->
+        ).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var credential = ar.result();
+                var credential = asyncResult.result();
                 if (credential.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 400, "Cannot create credential");
+                    Utility.sendFailure(ctx, 400, "Cannot create credential");
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 201, "Credential created", credential);
+                Utility.sendSuccess(ctx, 201, "Credential created", credential);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void updateCredential(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        if(Validators.validateBody(ctx)) { return; }
+
+        if (
+                Validators.validateInputFields(ctx, new String[]{
+                        Fields.Credential.NAME,
+                        Fields.Credential.USERNAME,
+                        Fields.Credential.PASSWORD}, false)
+        ) { return; }
+
+        var checkRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+
+        checkRequest.onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var credential = ar.result();
+                var credential = asyncResult.result();
+
                 if (credential.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Credential not found");
+                    Utility.sendFailure(ctx, 404, "Credential not found");
+
                     return;
                 }
 
                 var name = ctx.body().asJsonObject().getString("name");
+
                 var username = ctx.body().asJsonObject().getString("username");
+
                 var password = ctx.body().asJsonObject().getString("password");
-                var updateRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
+
+                DbUtility.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)
                         .add(name)
                         .add(username)
                         .add(password)
-                );
-                updateRequest.onComplete(updateAr ->
+                ).onComplete(updateResult ->
                 {
-                    if (updateAr.succeeded())
+                    if (updateResult.succeeded())
                     {
-                        var res = updateAr.result();
-                        HttpResponse.sendSuccess(ctx, 200, "Credential updated successfully", res);
+                        var res = updateResult.result();
+
+                        Utility.sendSuccess(ctx, 200, "Credential updated successfully", res);
                     }
                     else
                     {
-                        HttpResponse.sendFailure(ctx, 500, updateAr.cause().getMessage());
+                        Utility.sendFailure(ctx, 500, updateResult.cause().getMessage());
                     }
                 });
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void deleteCredential(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var credential = ar.result();
+                var credential = asyncResult.result();
+
                 if (credential.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Credential not found");
+                    Utility.sendFailure(ctx, 404, "Credential not found");
+
                     return;
                 }
 
-                var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
+                var deleteRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
 
-                deleteRequest.onComplete(delAr ->
+                deleteRequest.onComplete(deleteResult ->
                 {
-                    if (delAr.succeeded())
+                    if (asyncResult.succeeded())
                     {
-                        var res = delAr.result();
-                        HttpResponse.sendSuccess(ctx, 200, "Credential deleted successfully", res);
+                        var res = asyncResult.result();
+
+                        Utility.sendSuccess(ctx, 200, "Credential deleted successfully", res);
                     }
                     else
                     {
-                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", delAr.cause().getMessage());
+                        Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
                     }
                 });
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }

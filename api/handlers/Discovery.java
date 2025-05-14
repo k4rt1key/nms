@@ -4,11 +4,13 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
-import org.nms.Logger;
-import org.nms.api.helpers.HttpResponse;
+import static org.nms.App.logger;
+
+import org.nms.api.Utility;
+import org.nms.api.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.helpers.DbEventBus;
+import org.nms.database.DbUtility;
 
 import java.util.ArrayList;
 
@@ -18,166 +20,191 @@ public class Discovery
 {
     public static void getAllDiscoveries(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL);
-        queryRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_ALL).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discoveries = ar.result();
+                var discoveries = asyncResult.result();
+
                 if (discoveries.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "No discoveries found");
+                    Utility.sendFailure(ctx, 404, "No discoveries found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
+
+                Utility.sendSuccess(ctx, 200, "Discoveries found", discoveries);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void getDiscoveryById(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
-        queryRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discovery = ar.result();
+                var discovery = asyncResult.result();
+
                 if (discovery.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    Utility.sendFailure(ctx, 404, "Discovery not found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
+
+                Utility.sendSuccess(ctx, 200, "Discovery found", discovery);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void getDiscoveryResultsById(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id));
-        queryRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discovery = ar.result();
+                var discovery = asyncResult.result();
+
                 if (discovery.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    Utility.sendFailure(ctx, 404, "Discovery not found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Discovery found", discovery);
+
+                Utility.sendSuccess(ctx, 200, "Discovery found", discovery);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void getDiscoveryResults(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_ALL_WITH_RESULTS);
-        queryRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_ALL_WITH_RESULTS).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discoveries = ar.result();
+                var discoveries = asyncResult.result();
+
                 if (discoveries.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "No discoveries found");
+                    Utility.sendFailure(ctx, 404, "No discoveries found");
+
                     return;
                 }
-                HttpResponse.sendSuccess(ctx, 200, "Discoveries found", discoveries);
+
+                Utility.sendSuccess(ctx, 200, "Discoveries found", discoveries);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void createDiscovery(RoutingContext ctx)
     {
-        var name = ctx.body().asJsonObject().getString("name");
-        var ip = ctx.body().asJsonObject().getString("ip");
-        var ipType = ctx.body().asJsonObject().getString("ip_type");
-        var credentials = ctx.body().asJsonObject().getJsonArray("credentials");
-        var port = ctx.body().asJsonObject().getInteger("port");
+        if(Validators.validateCreateDiscovery(ctx)) { return; }
 
-        var insertRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT, new JsonArray().add(name).add(ip).add(ipType).add(port));
-        insertRequest.onComplete(ar ->
+        var name = ctx.body().asJsonObject().getString(Fields.Discovery.NAME);
+
+        var ip = ctx.body().asJsonObject().getString(Fields.Discovery.IP);
+
+        var ipType = ctx.body().asJsonObject().getString(Fields.Discovery.IP_TYPE);
+
+        var credentials = ctx.body().asJsonObject().getJsonArray(Fields.Discovery.CREDENTIAL_JSON);
+
+        var port = ctx.body().asJsonObject().getInteger(Fields.Discovery.PORT);
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.INSERT, new JsonArray().add(name).add(ip).add(ipType).add(port)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discovery = ar.result();
+                var discovery = asyncResult.result();
+
                 if (discovery.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 400, "Failed to create discovery");
+                    Utility.sendFailure(ctx, 400, "Failed to create discovery");
+
                     return;
                 }
 
                 var credentialsToAdd = new ArrayList<Tuple>();
+
                 var discoveryId = discovery.getJsonObject(0).getInteger(Fields.Discovery.ID);
 
                 for (var i = 0; i < credentials.size(); i++)
                 {
                     var credentialId = Integer.parseInt(credentials.getString(i));
+
                     credentialsToAdd.add(Tuple.of(discoveryId, credentialId));
                 }
 
-                var credentialRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
-                credentialRequest.onComplete(credAr ->
+                var credentialRequest = DbUtility.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
+
+                credentialRequest.onComplete(credentialInsertion ->
                 {
-                    if (credAr.succeeded())
+                    if (credentialInsertion.succeeded())
                     {
-                        var discoveryCredentials = credAr.result();
+                        var discoveryCredentials = credentialInsertion.result();
+
                         if (discoveryCredentials.isEmpty())
                         {
-                            HttpResponse.sendFailure(ctx, 400, "Failed to add credentials to discovery");
+                            Utility.sendFailure(ctx, 400, "Failed to add credentials to discovery");
                             return;
                         }
 
-                        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId));
-                        getRequest.onComplete(getAr ->
+                        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(discoveryResult ->
                         {
-                            if (getAr.succeeded())
+                            if (discoveryResult.succeeded())
                             {
-                                var discoveryWithCredentials = getAr.result();
-                                HttpResponse.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials);
+                                var discoveryWithCredentials = discoveryResult.result();
+
+                                Utility.sendSuccess(ctx, 201, "Discovery created successfully", discoveryWithCredentials);
                             }
                             else
                             {
-                                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", getAr.cause().getMessage());
+                                Utility.sendFailure(ctx, 500, "Something Went Wrong", discoveryResult.cause().getMessage());
                             }
                         });
                     }
                     else
                     {
-                        var rollbackRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(discoveryId));
-                        rollbackRequest.onComplete(rollbackAr ->
+                        DbUtility.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(discoveryId)).onComplete(rollbackResult ->
                         {
-                            if (rollbackAr.failed())
+                            if (rollbackResult.failed())
                             {
-                                Logger.error("Failed to rollback discovery creation: " + rollbackAr.cause().getMessage());
+                                logger.error("Failed to rollback discovery creation: " + rollbackResult.cause().getMessage());
                             }
                         });
-                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", credAr.cause().getMessage());
+
+                        Utility.sendFailure(ctx, 500, "Something Went Wrong", credentialInsertion.cause().getMessage());
                     }
                 });
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
@@ -185,64 +212,73 @@ public class Discovery
     public static void updateDiscovery(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.onComplete(ar ->
+
+        if(Validators.validateUpdateDiscovery(ctx)) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var discovery = ar.result();
+                var discovery = asyncResult.result();
+
                 if (discovery.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    Utility.sendFailure(ctx, 404, "Discovery not found");
+
                     return;
                 }
 
                 if (discovery.getJsonObject(0).getString(Fields.Discovery.STATUS).equals(Fields.DiscoveryResult.COMPLETED_STATUS))
                 {
-                    HttpResponse.sendFailure(ctx, 400, "Discovery Already Run");
+                    Utility.sendFailure(ctx, 400, "Discovery Already Run");
+
                     return;
                 }
 
-                var name = ctx.body().asJsonObject().getString("name");
-                var ip = ctx.body().asJsonObject().getString("ip");
-                var ipType = ctx.body().asJsonObject().getString("ip_type");
-                var port = ctx.body().asJsonObject().getInteger("port");
+                var name = ctx.body().asJsonObject().getString(Fields.Discovery.NAME);
 
-                var updateRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port));
-                updateRequest.onComplete(updateAr ->
+                var ip = ctx.body().asJsonObject().getString(Fields.Discovery.IP);
+
+                var ipType = ctx.body().asJsonObject().getString(Fields.Discovery.IP_TYPE);
+
+                var port = ctx.body().asJsonObject().getInteger(Fields.Discovery.PORT);
+
+                DbUtility.sendQueryExecutionRequest(Queries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port)).onComplete(updateResult ->
                 {
-                    if (updateAr.succeeded())
+                    if (updateResult.succeeded())
                     {
-                        var updatedDiscovery = updateAr.result();
+                        var updatedDiscovery = updateResult.result();
+
                         if (updatedDiscovery.isEmpty())
                         {
-                            HttpResponse.sendFailure(ctx, 400, "Failed to update discovery");
+                            Utility.sendFailure(ctx, 400, "Failed to update discovery");
+
                             return;
                         }
 
-                        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
-                        getRequest.onComplete(getAr ->
+                        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
                         {
-                            if (getAr.succeeded())
+                            if (discoveryResult.succeeded())
                             {
-                                var discoveryWithCredentials = getAr.result();
-                                HttpResponse.sendSuccess(ctx, 200, "Discovery updated successfully", discoveryWithCredentials);
+                                var discoveryWithCredentials = discoveryResult.result();
+
+                                Utility.sendSuccess(ctx, 200, "Discovery updated successfully", discoveryWithCredentials);
                             }
                             else
                             {
-                                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", getAr.cause().getMessage());
+                                Utility.sendFailure(ctx, 500, "Something Went Wrong", discoveryResult.cause().getMessage());
                             }
                         });
                     }
                     else
                     {
-                        HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", updateAr.cause().getMessage());
+                        Utility.sendFailure(ctx, 500, "Something Went Wrong", updateResult.cause().getMessage());
                     }
                 });
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
@@ -250,40 +286,46 @@ public class Discovery
     public static void updateDiscoveryCredentials(RoutingContext ctx)
     {
         var id = Integer.parseInt(ctx.request().getParam("id"));
-        var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
-        checkRequest.onComplete(ar ->
+
+        if( Validators.validateUpdateDiscoveryCredential(ctx)) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
         {
-            if (ar.succeeded())
+            if (discoveryResult.succeeded())
             {
-                var discovery = ar.result();
+                var discovery = discoveryResult.result();
+
                 if (discovery.isEmpty())
                 {
-                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                    Utility.sendFailure(ctx, 404, "Discovery not found");
+
                     return;
                 }
 
-                var addCredentials = ctx.body().asJsonObject().getJsonArray("add_credentials");
-                var removeCredentials = ctx.body().asJsonObject().getJsonArray("remove_credentials");
+                var addCredentials = ctx.body().asJsonObject().getJsonArray(Fields.Discovery.ADD_CREDENTIALS);
+
+                var removeCredentials = ctx.body().asJsonObject().getJsonArray(Fields.Discovery.REMOVE_CREDENTIALS);
 
                 if (addCredentials != null && !addCredentials.isEmpty())
                 {
                     var credentialsToAdd = new ArrayList<Tuple>();
+
                     for (var i = 0; i < addCredentials.size(); i++)
                     {
                         var credentialId = Integer.parseInt(addCredentials.getString(i));
+
                         credentialsToAdd.add(Tuple.of(id, credentialId));
                     }
 
-                    var addRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
-                    addRequest.onComplete(addAr ->
+                    DbUtility.sendQueryExecutionRequest(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd).onComplete(discoveryInsertion ->
                     {
-                        if (addAr.succeeded())
+                        if (discoveryInsertion.succeeded())
                         {
                             processRemoveCredentials(ctx, id, removeCredentials);
                         }
                         else
                         {
-                            HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", addAr.cause().getMessage());
+                            Utility.sendFailure(ctx, 500, "Something Went Wrong", discoveryInsertion.cause().getMessage());
                         }
                     });
                 }
@@ -294,7 +336,7 @@ public class Discovery
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", discoveryResult.cause().getMessage());
             }
         });
     }
@@ -305,22 +347,23 @@ public class Discovery
         if (removeCredentials != null && !removeCredentials.isEmpty())
         {
             var credentialsToRemove = new ArrayList<Tuple>();
+
             for (var i = 0; i < removeCredentials.size(); i++)
             {
                 var credentialId = Integer.parseInt(removeCredentials.getString(i));
+
                 credentialsToRemove.add(Tuple.of(discoveryId, credentialId));
             }
 
-            var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE_CREDENTIAL, credentialsToRemove);
-            deleteRequest.onComplete(ar ->
+            DbUtility.sendQueryExecutionRequest(Queries.Discovery.DELETE_CREDENTIAL, credentialsToRemove).onComplete(asyncResult ->
             {
-                if (ar.succeeded())
+                if (asyncResult.succeeded())
                 {
                     returnUpdatedDiscovery(ctx, discoveryId);
                 }
                 else
                 {
-                    HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                    Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
                 }
             });
         }
@@ -330,43 +373,48 @@ public class Discovery
         }
     }
 
-    // Helper
+    // Helper method to
     private static void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId)
     {
-        var getRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId));
-        getRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var updatedDiscovery = ar.result();
-                HttpResponse.sendSuccess(ctx, 200, "Discovery credentials updated successfully", updatedDiscovery);
+                var updatedDiscovery = asyncResult.result();
+
+                Utility.sendSuccess(ctx, 200, "Discovery credentials updated successfully", updatedDiscovery);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
     public static void deleteDiscovery(RoutingContext ctx)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
-        var deleteRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(id));
-        deleteRequest.onComplete(ar ->
+        var id = Validators.validateID(ctx);
+
+        if(id == -1) { return; }
+
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.DELETE, new JsonArray().add(id)).onComplete(asyncResult ->
         {
-            if (ar.succeeded()) {
-                var discovery = ar.result();
-                if (discovery.isEmpty()) {
-                    HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+            if (asyncResult.succeeded())
+            {
+                var discovery = asyncResult.result();
+
+                if (discovery.isEmpty())
+                {
+                    Utility.sendFailure(ctx, 404, "Discovery not found");
+
                     return;
                 }
 
-                HttpResponse.sendSuccess(ctx, 200, "Discovery deleted successfully", discovery);
-
+                Utility.sendSuccess(ctx, 200, "Discovery deleted successfully", discovery);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
@@ -375,37 +423,39 @@ public class Discovery
     {
         try
         {
-            var id = Integer.parseInt(ctx.request().getParam("id"));
-            var checkRequest = DbEventBus.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id));
+            var id = Validators.validateID(ctx);
 
-            checkRequest.onComplete(ar ->
+            if(id == -1) { return; }
+
+            DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
             {
-                if (ar.succeeded())
+                if (asyncResult.succeeded())
                 {
-                    var discovery = ar.result();
+                    var discovery = asyncResult.result();
+
                     if (discovery.isEmpty())
                     {
-                        HttpResponse.sendFailure(ctx, 404, "Discovery not found");
+                        Utility.sendFailure(ctx, 404, "Discovery not found");
+
                         return;
                     }
 
                     vertx.eventBus().send(
                             Fields.EventBus.RUN_DISCOVERY_ADDRESS,
-                            new JsonObject().put("id", id)
+                            new JsonObject().put(Fields.Discovery.ID, id)
                     );
 
-                    HttpResponse.sendSuccess(ctx, 202, "Discovery request with id " + id + " accepted and is being processed",
-                            new JsonArray());
+                    Utility.sendSuccess(ctx, 202, "Discovery request with id " + id + " accepted and is being processed", new JsonArray());
                 }
                 else
                 {
-                    HttpResponse.sendFailure(ctx, 500, "Something Went Wrong", ar.cause().getMessage());
+                    Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
                 }
             });
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            HttpResponse.sendFailure(ctx, 400, "Invalid discovery ID provided");
+            Utility.sendFailure(ctx, 400, "Invalid discovery ID provided");
         }
     }
 }

@@ -1,26 +1,25 @@
 package org.nms.api.handlers;
 
 import io.vertx.ext.web.RoutingContext;
-import org.nms.api.helpers.HttpResponse;
+import org.nms.api.Utility;
 import org.nms.constants.Queries;
-import org.nms.database.helpers.DbEventBus;
+import org.nms.database.DbUtility;
 
 public class MetricResult
 {
     public static void getAllPolledData(RoutingContext ctx)
     {
-        var queryRequest = DbEventBus.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL);
-
-        queryRequest.onComplete(ar ->
+        DbUtility.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL).onComplete(asyncResult ->
         {
-            if (ar.succeeded())
+            if (asyncResult.succeeded())
             {
-                var polledData = ar.result();
-                HttpResponse.sendSuccess(ctx, 200, "Polled Data", polledData);
+                var polledData = asyncResult.result();
+
+                Utility.sendSuccess(ctx, 200, "Polled Data", polledData);
             }
             else
             {
-                HttpResponse.sendFailure(ctx, 500, "Something Went Wrong");
+                Utility.sendFailure(ctx, 500, "Something Went Wrong");
             }
         });
     }
