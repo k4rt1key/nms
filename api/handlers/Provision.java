@@ -120,8 +120,6 @@ public class Provision
 
                             var provisionArray = new JsonArray();
 
-                            var failedProvision = new JsonArray();
-
                             for (var i = 0; i < savedProvisions.size(); i++)
                             {
                                 if (savedProvisions.resultAt(i) != null)
