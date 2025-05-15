@@ -29,11 +29,7 @@ public class Discovery extends AbstractVerticle
             runDiscoveryProcess(id)
                     .onComplete(asyncResult ->
                     {
-                        if (asyncResult.succeeded())
-                        {
-                            logger.info("Discovery with id " + id + " completed successfully");
-                        }
-                        else
+                        if (asyncResult.failed())
                         {
                             logger.error("Error running discovery id " + id + ": " + asyncResult.cause().getMessage());
                         }
@@ -83,8 +79,6 @@ public class Discovery extends AbstractVerticle
 
                                 var ips = Utility.getIpsFromString(ipStr, ipType);
 
-                                logger.debug("Ips " + ips.encode());
-
                                 return executeDiscoverySteps(id, ips, port, credentials);
                             });
                 })
@@ -120,14 +114,14 @@ public class Discovery extends AbstractVerticle
         pingIps(ips)
                 .compose(pingResults ->
                 {
-                    var pingPassedIps = processPingResults(id, pingResults);
+                    var pingPassedIps = insertPingResults(id, pingResults);
 
                     // Step 2: Port Check - directly call without event bus
                     return checkPorts(pingPassedIps, port)
 
                             .compose(portResults ->
                             {
-                                var portPassedIps = processPortCheckResults(id, portResults);
+                                var portPassedIps = insertPortCheckResults(id, portResults);
 
                                 // Step 3: Credentials Check - only for IPs that passed port check
                                 if (portPassedIps.isEmpty())
@@ -180,8 +174,6 @@ public class Discovery extends AbstractVerticle
             if (reply.succeeded())
             {
                 var response = reply.result().body();
-
-                logger.debug("Plugin response: " + response.encode());
 
                 promise.complete(response.getJsonArray(Fields.Discovery.RESULT_JSON, new JsonArray()));
             }

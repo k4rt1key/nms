@@ -7,6 +7,8 @@ import io.vertx.core.json.JsonObject;
 import static org.nms.App.logger;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -15,6 +17,8 @@ import java.util.stream.Collectors;
 
 public class Plugin extends AbstractVerticle
 {
+    private static final Logger log = LoggerFactory.getLogger(Plugin.class);
+
     @Override
     public void start()
     {
@@ -37,7 +41,7 @@ public class Plugin extends AbstractVerticle
     }
 
     /**
-     * Spawns plugin, Sends request and returns response json
+     * Spawns plugin, Sends request and returns Json Response
      */
     private Future<JsonObject> spawnPlugin(JsonObject request)
     {
@@ -78,6 +82,8 @@ public class Plugin extends AbstractVerticle
                 var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
                 var output = reader.lines().collect(Collectors.joining());
+
+                logger.debug("Plugin response: " + output);
 
                 return new JsonObject(output);
             }

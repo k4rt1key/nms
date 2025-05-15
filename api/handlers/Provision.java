@@ -79,7 +79,7 @@ public class Provision
 
         var ips = ctx.body().asJsonObject().getJsonArray(IPS);
 
-        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
+        DbUtility.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(Integer.parseInt(discoveryId))).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -107,7 +107,7 @@ public class Provision
                 {
                     for (var j = 0; j < ips.size(); j++)
                     {
-                        addMonitorsFuture.add(DbUtility.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(discoveryId).add(ips.getString(j))));
+                        addMonitorsFuture.add(DbUtility.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(Integer.parseInt(discoveryId)).add(ips.getString(j))));
                     }
 
                     var joinFuture = CompositeFuture.join(addMonitorsFuture);
@@ -120,19 +120,24 @@ public class Provision
 
                             var provisionArray = new JsonArray();
 
+                            var failedProvision = new JsonArray();
+
                             for (var i = 0; i < savedProvisions.size(); i++)
                             {
                                 if (savedProvisions.resultAt(i) != null)
                                 {
                                     var savedProvision = (JsonArray) savedProvisions.resultAt(i);
 
-                                    provisionArray.add(savedProvision.getJsonObject(0));
+                                    if(!savedProvision.isEmpty())
+                                    {
+                                        provisionArray.add(savedProvision.getJsonObject(0));
+                                    }
                                 }
                             }
 
                             Cache.insertMonitorArray(provisionArray);
 
-                            Utility.sendSuccess(ctx, 200, "Provisioned All Valid Ips", provisionArray);
+                            Utility.sendSuccess(ctx, 200, "Provisioned All Ips Which Was Correct, Ignoring Incorrect Ips", provisionArray);
                         }
                         else
                         {

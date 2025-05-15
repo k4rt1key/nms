@@ -65,7 +65,7 @@ public class CrudHelpers
         return promise.future();
     }
 
-    public static JsonArray processPingResults(int id, JsonArray pingResults)
+    public static JsonArray insertPingResults(int id, JsonArray pingResults)
     {
         var pingCheckPassedIps = new JsonArray();
 
@@ -98,7 +98,7 @@ public class CrudHelpers
         return pingCheckPassedIps;
     }
 
-    public static JsonArray processPortCheckResults(int id, JsonArray portCheckResults)
+    public static JsonArray insertPortCheckResults(int id, JsonArray portCheckResults)
     {
         var portCheckPassedIps = new JsonArray();
 
@@ -161,15 +161,15 @@ public class CrudHelpers
         }
 
         // Batch insert results, handling empty lists to avoid batch query errors
-        Future<JsonArray> failure = credentialCheckFailedIps.isEmpty()
+        Future<JsonArray> failureIps = credentialCheckFailedIps.isEmpty()
                 ? Future.succeededFuture(new JsonArray())
                 : DbUtility.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckFailedIps);
 
-        Future<JsonArray> success = credentialCheckSuccessIps.isEmpty()
+        Future<JsonArray> successIps = credentialCheckSuccessIps.isEmpty()
                 ? Future.succeededFuture(new JsonArray())
                 : DbUtility.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckSuccessIps);
 
-        return Future.join(failure, success)
+        return Future.join(failureIps, successIps)
                 .compose(v -> Future.succeededFuture());
     }
 }

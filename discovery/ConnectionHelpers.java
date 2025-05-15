@@ -24,6 +24,26 @@ public class ConnectionHelpers
 {
     public static Future<JsonArray> pingIps(JsonArray ips)
     {
+        // Early validation - outside executeBlocking
+        if (ips == null || ips.isEmpty())
+        {
+            return Future.succeededFuture(new JsonArray());
+        }
+
+        logger.debug("ping check request for ips: " + ips.encode());
+
+        // Prepare fping command - outside executeBlocking
+        var command = new String[ips.size() + 3];
+        command[0] = "fping";
+        command[1] = "-c1";
+        command[2] = "-q";
+
+        for (var i = 0; i < ips.size(); i++)
+        {
+            command[i + 3] = ips.getString(i);
+        }
+
+        // Only execute the blocking ping operation within executeBlocking
         return App.vertx.executeBlocking(promise ->
         {
             var results = new JsonArray();
@@ -34,28 +54,6 @@ public class ConnectionHelpers
 
             try
             {
-                // Validate input
-                if (ips == null || ips.isEmpty())
-                {
-                    promise.complete(results);
-
-                    return;
-                }
-
-                // Prepare fping command
-                var command = new String[ips.size() + 3];
-
-                command[0] = "fping";
-
-                command[1] = "-c1";
-
-                command[2] = "-q";
-
-                for (var i = 0; i < ips.size(); i++)
-                {
-                    command[i + 3] = ips.getString(i);
-                }
-
                 var processBuilder = new ProcessBuilder(command);
 
                 processBuilder.redirectErrorStream(true);
@@ -95,8 +93,6 @@ public class ConnectionHelpers
 
                     processedIps.add(ip);
 
-                    logger.debug("procced ip " + ip);
-
                     var isSuccess = !stats.contains("100%");
 
                     var result = new JsonObject()
@@ -120,6 +116,8 @@ public class ConnectionHelpers
                         results.add(createErrorResult(ip, "No response from fping"));
                     }
                 }
+
+                logger.debug("ping check passed ips: " + results.encode());
 
                 promise.complete(results);
             }
@@ -163,11 +161,13 @@ public class ConnectionHelpers
             return promise.future();
         }
 
+        logger.debug("port check request for ips: " + ips.encode());
+
         for (var ip : ips)
         {
-            var checkPromise = Promise.<JsonObject>promise();
+            var checkPortPromise = Promise.<JsonObject>promise();
 
-            futures.add(checkPromise.future());
+            futures.add(checkPortPromise.future());
 
             var result = new JsonObject()
                     .put(IP, ip.toString())
@@ -214,7 +214,7 @@ public class ConnectionHelpers
                             {
                                 results.add(result);
 
-                                checkPromise.complete(result);
+                                checkPortPromise.complete(result);
                             }
                         });
             }
@@ -226,20 +226,22 @@ public class ConnectionHelpers
                 results
                         .add(result);
 
-                checkPromise.complete(result);
+                checkPortPromise.complete(result);
             }
         }
 
         Future.all(futures)
-                .onComplete(ar ->
+                .onComplete(asyncResult ->
                 {
-                    if (ar.succeeded())
+                    if (asyncResult.succeeded())
                     {
+                        logger.debug("Port check passed ips: " + results.encode());
+
                         promise.complete(results);
                     }
                     else
                     {
-                        logger.error("Error in port check: " + ar.cause().getMessage());
+                        logger.error("Error in port check: " + asyncResult.cause().getMessage());
 
                         promise.complete(results);
                     }
