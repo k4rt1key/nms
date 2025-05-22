@@ -1,18 +1,61 @@
-package org.nms.api.handlers;
+package org.nms.api;
 
 import io.vertx.core.json.JsonArray;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.api.Utility;
-import org.nms.api.Validators;
+import org.nms.validators.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbUtility;
+import org.nms.utils.ApiUtils;
 
-public class Credential
+import static org.nms.App.vertx;
+import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
+import static org.nms.utils.DbUtils.sendFailure;
+import static org.nms.utils.DbUtils.sendSuccess;
+
+public class Credential implements BaseHandler
 {
-    public static void getAllCredentials(RoutingContext ctx)
+    private static Credential instance;
+
+    private Credential(){}
+
+    public static Credential getInstance()
     {
-        DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
+        if(instance == null)
+        {
+            instance = new Credential();
+        }
+
+        return instance;
+    }
+
+    @Override
+    public void init(Router router)
+    {
+        var credentialRouter = Router.router(vertx);
+
+        credentialRouter.get("/")
+                .handler(this::list);
+
+        credentialRouter.get("/:id")
+                .handler(this::get);
+
+        credentialRouter.post("/")
+                .handler(this::insert);
+
+        credentialRouter.patch("/:id")
+                .handler(this::update);
+
+        credentialRouter.delete("/:id")
+                .handler(this::delete);
+
+        router.route(CREDENTIALS_ENDPOINT).subRouter(credentialRouter);
+    }
+
+    @Override
+    public void list(RoutingContext ctx)
+    {
+        ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -20,26 +63,27 @@ public class Credential
 
                 if (credentials.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "No credentials found");
+                    sendFailure(ctx, 404, "No credentials found");
                     return;
                 }
 
-                Utility.sendSuccess(ctx, 200, "Credentials found", credentials);
+                sendSuccess(ctx, 200, "Credentials found", credentials);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void getCredentialById(RoutingContext ctx)
+    @Override
+    public void get(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
         if(id == -1) { return; }
 
-        var queryRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var queryRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         queryRequest.onComplete(asyncResult ->
         {
@@ -49,20 +93,21 @@ public class Credential
 
                 if (credential.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "Credential not found");
+                    sendFailure(ctx, 404, "Credential not found");
 
                     return;
                 }
-                Utility.sendSuccess(ctx, 200, "Credential found", credential);
+                sendSuccess(ctx, 200, "Credential found", credential);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void createCredential(RoutingContext ctx)
+    @Override
+    public void insert(RoutingContext ctx)
     {
         Validators.validateBody(ctx);
 
@@ -79,7 +124,7 @@ public class Credential
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        DbUtility.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
+        ApiUtils.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
                 .add(name)
                 .add(username)
                 .add(password)
@@ -90,19 +135,20 @@ public class Credential
                 var credential = asyncResult.result();
                 if (credential.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 400, "Cannot create credential");
+                    sendFailure(ctx, 400, "Cannot create credential");
                     return;
                 }
-                Utility.sendSuccess(ctx, 201, "Credential created", credential);
+                sendSuccess(ctx, 201, "Credential created", credential);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void updateCredential(RoutingContext ctx)
+    @Override
+    public void update(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
@@ -117,7 +163,7 @@ public class Credential
                         Fields.Credential.PASSWORD}, false)
         ) { return; }
 
-        var checkRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var checkRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         checkRequest.onComplete(asyncResult ->
         {
@@ -127,7 +173,7 @@ public class Credential
 
                 if (credential.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "Credential not found");
+                    sendFailure(ctx, 404, "Credential not found");
 
                     return;
                 }
@@ -138,7 +184,7 @@ public class Credential
 
                 var password = ctx.body().asJsonObject().getString("password");
 
-                DbUtility.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
+                ApiUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)
                         .add(name)
                         .add(username)
@@ -149,28 +195,29 @@ public class Credential
                     {
                         var res = updateResult.result();
 
-                        Utility.sendSuccess(ctx, 200, "Credential updated successfully", res);
+                        sendSuccess(ctx, 200, "Credential updated successfully", res);
                     }
                     else
                     {
-                        Utility.sendFailure(ctx, 500, updateResult.cause().getMessage());
+                        sendFailure(ctx, 500, updateResult.cause().getMessage());
                     }
                 });
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void deleteCredential(RoutingContext ctx)
+    @Override
+    public void delete(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
         if(id == -1) { return; }
 
-        DbUtility.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -178,12 +225,12 @@ public class Credential
 
                 if (credential.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "Credential not found");
+                    sendFailure(ctx, 404, "Credential not found");
 
                     return;
                 }
 
-                var deleteRequest = DbUtility.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
+                var deleteRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
 
                 deleteRequest.onComplete(deleteResult ->
                 {
@@ -191,17 +238,17 @@ public class Credential
                     {
                         var res = asyncResult.result();
 
-                        Utility.sendSuccess(ctx, 200, "Credential deleted successfully", res);
+                        sendSuccess(ctx, 200, "Credential deleted successfully", res);
                     }
                     else
                     {
-                        Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                        sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
                     }
                 });
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }

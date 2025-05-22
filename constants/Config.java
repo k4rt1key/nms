@@ -30,13 +30,13 @@ public class Config
     public static final String DB_PASSWORD = "nms";
 
     // ====== Time ( in seconds ) =====
-    public static final int SCHEDULER_CHECKING_INTERVAL = 30;
+    public static final int SCHEDULER_CHECKING_INTERVAL = 60;
 
     public static final int PORT_TIMEOUT = 1;
 
-    public static final int BASE_TIME = 5;
+    public static final int BASE_TIME = 10;
 
-    public static final int DISCOVERY_TIMEOUT_PER_IP = 1;
+    public static final int DISCOVERY_TIMEOUT_PER_IP = 10;
 
-    public static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 10;
+    public static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 15;
 }

@@ -1,21 +1,74 @@
-package org.nms.api.handlers;
+package org.nms.api;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.api.Server;
-import org.nms.api.Utility;
-import org.nms.api.Validators;
+import org.nms.validators.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbUtility;
+import org.nms.utils.ApiUtils;
 
-public class User
+import static org.nms.App.vertx;
+import static org.nms.api.HttpServer.jwtAuthHandler;
+import static org.nms.constants.Fields.ENDPOINTS.USER_ENDPOINT;
+import static org.nms.utils.DbUtils.sendFailure;
+import static org.nms.utils.DbUtils.sendSuccess;
+
+public class User implements BaseHandler
 {
-    public static void getUsers(RoutingContext ctx)
+    private static User instance;
+
+    private User(){}
+
+    public static User getInstance()
     {
-        DbUtility.sendQueryExecutionRequest(Queries.User.GET_ALL).onComplete(asyncResult ->
+        if(instance == null)
+        {
+            instance = new User();
+        }
+
+        return instance;
+    }
+
+    @Override
+    public void init(Router router)
+    {
+        var userRouter = Router.router(vertx);
+
+        userRouter.get("/")
+                .handler(this::list);
+
+        userRouter.get("/:id")
+                .handler(jwtAuthHandler)
+                .handler(HttpServer::authenticate)
+                .handler(this::get);
+
+        userRouter.post("/login")
+                .handler(this::login);
+
+        userRouter.post("/register")
+                .handler(this::insert);
+
+        userRouter.patch("/:id")
+                .handler(jwtAuthHandler)
+                .handler(HttpServer::authenticate)
+                .handler(this::update);
+
+        userRouter.delete("/:id")
+                .handler(jwtAuthHandler)
+                .handler(HttpServer::authenticate)
+                .handler(this::delete);
+
+        router.route(USER_ENDPOINT).subRouter(userRouter);
+
+    }
+
+    @Override
+    public void list(RoutingContext ctx)
+    {
+        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -23,26 +76,27 @@ public class User
 
                 if (users.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "No users found");
+                    sendFailure(ctx, 404, "No users found");
 
                     return;
                 }
-                Utility.sendSuccess(ctx, 200, "Users found", users);
+                sendSuccess(ctx, 200, "Users found", users);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void getUserById(RoutingContext ctx)
+    @Override
+    public void get(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
         if(id == -1) { return; }
 
-        DbUtility.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -50,20 +104,21 @@ public class User
 
                 if (user.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "User not found");
+                    sendFailure(ctx, 404, "User not found");
                     return;
                 }
 
-                Utility.sendSuccess(ctx, 200, "User found", user);
+                sendSuccess(ctx, 200, "User found", user);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void register(RoutingContext ctx)
+    @Override
+    public void insert(RoutingContext ctx)
     {
         if(Validators.validateBody(ctx)) { return; }
 
@@ -73,13 +128,13 @@ public class User
                         Fields.User.PASSWORD}, true)
         ) { return; }
 
-        DbUtility.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
+        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
 
                 .compose(user ->
                 {
                     if (user != null && !user.isEmpty())
                     {
-                        Utility.sendFailure(ctx, 409, "User already exists");
+                        sendFailure(ctx, 409, "User already exists");
 
                         return Future.failedFuture(new Exception("User Already Exist"));
                     }
@@ -89,7 +144,7 @@ public class User
 
                 .compose(useExist ->
 
-                    DbUtility.sendQueryExecutionRequest(Queries.User.INSERT, new JsonArray()
+                    ApiUtils.sendQueryExecutionRequest(Queries.User.INSERT, new JsonArray()
                             .add(ctx.body().asJsonObject().getString("name"))
                             .add(ctx.body().asJsonObject().getString("password"))
                     ))
@@ -102,26 +157,26 @@ public class User
 
                         if (user.isEmpty())
                         {
-                            Utility.sendFailure(ctx, 400, "Cannot register user");
+                            sendFailure(ctx, 400, "Cannot register user");
 
                             return;
                         }
 
-                        var jwtToken = Server.jwtAuth
+                        var jwtToken = HttpServer.jwtAuth
                                 .generateToken(new JsonObject().put("id", user.getJsonObject(0).getInteger("id")));
 
                         user.getJsonObject(0).put("jwt", jwtToken);
 
-                        Utility.sendSuccess(ctx, 201, "User registered", user);
+                        sendSuccess(ctx, 201, "User registered", user);
                     }
                     else
                     {
-                        Utility.sendFailure(ctx, 500, "Something Went Wrong", userInsertion.cause().getMessage());
+                        sendFailure(ctx, 500, "Something Went Wrong", userInsertion.cause().getMessage());
                     }
                  });
     }
 
-    public static void login(RoutingContext ctx)
+    public void login(RoutingContext ctx)
     {
 
         if(Validators.validateBody(ctx)) { return; }
@@ -134,7 +189,7 @@ public class User
 
         var username = ctx.body().asJsonObject().getString("name");
 
-        DbUtility.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
+        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -142,7 +197,7 @@ public class User
 
                 if (user == null || user.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "User not found");
+                    sendFailure(ctx, 404, "User not found");
 
                     return;
                 }
@@ -151,26 +206,27 @@ public class User
 
                 if (!user.getJsonObject(0).getString("password").equals(password))
                 {
-                    Utility.sendFailure(ctx, 401, "Invalid password");
+                    sendFailure(ctx, 401, "Invalid password");
 
                     return;
                 }
 
-                var jwtToken = Server.jwtAuth.generateToken(new JsonObject()
+                var jwtToken = HttpServer.jwtAuth.generateToken(new JsonObject()
                         .put("id", user.getJsonObject(0).getInteger("id")));
 
                 user.getJsonObject(0).put("jwt", jwtToken);
 
-                Utility.sendSuccess(ctx, 200, "User logged in", user);
+                sendSuccess(ctx, 200, "User logged in", user);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void updateUser(RoutingContext ctx)
+    @Override
+    public void update(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
@@ -188,7 +244,7 @@ public class User
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        DbUtility.sendQueryExecutionRequest(Queries.User.UPDATE, new JsonArray()
+        ApiUtils.sendQueryExecutionRequest(Queries.User.UPDATE, new JsonArray()
                 .add(id)
                 .add(username)
                 .add(password)
@@ -198,22 +254,23 @@ public class User
             {
                 var updatedUser = asyncResult.result();
 
-                Utility.sendSuccess(ctx, 200, "User updated successfully", updatedUser);
+                sendSuccess(ctx, 200, "User updated successfully", updatedUser);
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }
 
-    public static void deleteUser(RoutingContext ctx)
+    @Override
+    public void delete(RoutingContext ctx)
     {
         var id = Validators.validateID(ctx);
 
         if(id == -1) { return; }
 
-        DbUtility.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -221,7 +278,7 @@ public class User
 
                 if (user.isEmpty())
                 {
-                    Utility.sendFailure(ctx, 404, "User not found");
+                    sendFailure(ctx, 404, "User not found");
 
                     return;
                 }
@@ -230,28 +287,28 @@ public class User
 
                 if (id != loggedInUser)
                 {
-                    Utility.sendFailure(ctx, 403, "You are not authorized to delete this user");
+                    sendFailure(ctx, 403, "You are not authorized to delete this user");
 
                     return;
                 }
 
-                DbUtility.sendQueryExecutionRequest(Queries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
+                ApiUtils.sendQueryExecutionRequest(Queries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
                 {
                     if (userDeletion.succeeded())
                     {
                         var deletedUser = userDeletion.result();
 
-                        Utility.sendSuccess(ctx, 200, "User deleted Successfully", deletedUser);
+                        sendSuccess(ctx, 200, "User deleted Successfully", deletedUser);
                     }
                     else
                     {
-                        Utility.sendFailure(ctx, 500, "Error deleting user: " + userDeletion.cause().getMessage());
+                        sendFailure(ctx, 500, "Error deleting user: " + userDeletion.cause().getMessage());
                     }
                 });
             }
             else
             {
-                Utility.sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
             }
         });
     }

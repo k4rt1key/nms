@@ -1,4 +1,4 @@
-package org.nms;
+package org.nms.cache;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
@@ -8,22 +8,37 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.nms.App.logger;
+
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbUtility;
+import org.nms.utils.ApiUtils;
 
-public class Cache
+public class MonitorCache
 {
-    private static final ConcurrentHashMap<Integer, JsonObject> cachedMetricGroups = new ConcurrentHashMap<>();
+    private static MonitorCache instance;
 
-    private static final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();
+    private MonitorCache(){}
+
+    public static MonitorCache getInstance()
+    {
+        if(instance == null)
+        {
+            instance =  new MonitorCache();
+        }
+
+        return instance;
+    }
+
+    private final ConcurrentHashMap<Integer, JsonObject> cachedMetricGroups = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();
 
     // Populate cache from database
-    public static Future<JsonArray> populate()
+    public Future<JsonArray> init()
     {
         try
         {
-            return DbUtility.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
+            return ApiUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
                     .onComplete(monitorArrayResult ->
                     {
                         if(monitorArrayResult.succeeded())
@@ -43,7 +58,7 @@ public class Cache
     }
 
     // Insert monitors into cache
-    public static void insertMonitorArray(JsonArray monitorArray)
+    public void insertMonitorArray(JsonArray monitorArray)
     {
         for (var i = 0; i < monitorArray.size(); i++)
         {
@@ -83,7 +98,7 @@ public class Cache
     }
 
     // Update metric groups in cache
-    public static void updateMetricGroups(JsonArray metricGroups)
+    public void updateMetricGroups(JsonArray metricGroups)
     {
         for (var i = 0; i < metricGroups.size(); i++)
         {
@@ -125,7 +140,7 @@ public class Cache
     }
 
     // Delete metric groups for a specific monitor
-    public static void deleteMetricGroups(Integer monitorId)
+    public void deleteMetricGroups(Integer monitorId)
     {
         var removedCount = new ArrayList<Integer>();
 
@@ -144,7 +159,7 @@ public class Cache
     }
 
     // Decrement intervals and collect timed-out metric groups
-    public static List<JsonObject> collectTimedOutGroups(int interval)
+    public List<JsonObject> collectTimedOutGroups(int interval)
     {
         var timedOutMetricGroups = new ArrayList<JsonObject>();
 

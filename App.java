@@ -7,10 +7,12 @@ import io.vertx.core.impl.logging.LoggerFactory;
 
 import java.util.concurrent.TimeUnit;
 
-import org.nms.api.Server;
+import org.nms.api.HttpServer;
 import org.nms.constants.Config;
 import org.nms.database.Database;
 import org.nms.discovery.Discovery;
+import org.nms.plugin.Plugin;
+import org.nms.scheduler.Scheduler;
 
 
 public class App
@@ -27,14 +29,10 @@ public class App
         try
         {
             vertx.deployVerticle(new Database())
-
                     .compose(v -> vertx.deployVerticle(new Scheduler()))
-
                     .compose(v -> vertx.deployVerticle(new Plugin()))
-
                     .compose(v -> vertx.deployVerticle(new Discovery()))
-                    
-                    .compose(v -> vertx.deployVerticle(new Server()))
+                    .compose(v -> vertx.deployVerticle(new HttpServer()))
 
             .onComplete(asyncResult ->
             {

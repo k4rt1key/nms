@@ -1,4 +1,4 @@
-package org.nms;
+package org.nms.plugin;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -17,8 +17,6 @@ import java.util.stream.Collectors;
 
 public class Plugin extends AbstractVerticle
 {
-    private static final Logger log = LoggerFactory.getLogger(Plugin.class);
-
     @Override
     public void start()
     {

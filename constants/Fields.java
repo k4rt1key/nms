@@ -2,6 +2,19 @@ package org.nms.constants;
 
 public class Fields
 {
+    public static class ENDPOINTS
+    {
+        public static final String CREDENTIALS_ENDPOINT = "/api/v1/credential/*";
+
+        public static final String PROVISION_ENDPOINT = "/api/v1/provision/*";
+
+        public static final String USER_ENDPOINT = "/api/v1/user/*";
+
+        public static final String DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
+
+        public static final String RESULT_ENDPOINT = "/api/v1/result/*";
+    }
+
     public static class User
     {
        public static final String ID = "id";
@@ -52,7 +65,7 @@ public class Fields
 
         public static final String SUCCESS = "success";
 
-        public static final String FAILURE = "fail";
+        public static final String FAILURE = "failed";
     }
 
     public static class DiscoveryCredential

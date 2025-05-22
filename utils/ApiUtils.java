@@ -1,35 +1,36 @@
-package org.nms.database;
+package org.nms.utils;
 
 import io.vertx.core.Future;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
-import org.nms.App;
 import static org.nms.App.logger;
+import static org.nms.App.vertx;
+
+import org.nms.constants.Config;
 import org.nms.constants.Fields;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class DbUtility
+public class ApiUtils
 {
     public static Future<JsonArray> sendQueryExecutionRequest(String query, JsonArray params)
     {
-        JsonObject request = new JsonObject()
+        var request = new JsonObject()
                 .put("query", query)
                 .put("params", params);
 
         try
         {
-            return App.vertx.eventBus().<JsonArray>request(
+            return vertx.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS,
                             request
                     )
-
                     .map(Message::body)
-
                     .onFailure(err ->
                             logger.warn("❌ Failed to execute...\n" + query + "\nwith params => " + params.encode() + "\nError => " + err.getMessage()));
         }
@@ -51,13 +52,11 @@ public class DbUtility
     {
         try
         {
-            return App.vertx.eventBus().<JsonArray>request(
+            return vertx.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS,
                             query
                     )
-
                     .map(Message::body)
-
                     .onFailure(err -> logger.warn("❌ Failed to execute...\n" + query + "\nError => " + err.getMessage()));
         }
 
@@ -77,16 +76,16 @@ public class DbUtility
     public static Future<JsonArray> sendQueryExecutionRequest(String query, List<Tuple> params)
     {
         // Convert List<Tuple> to JsonArray of JsonArrays for transmission over event bus
-        JsonArray dbParams = new JsonArray();
+        var dbParams = new JsonArray();
 
-        for (Tuple tuple : params)
+        for (var tuple : params)
         {
-            JsonArray paramArray = new JsonArray();
+            var paramArray = new JsonArray();
 
             // Convert each Tuple to JsonArray
-            int size = tuple.size();
+            var size = tuple.size();
 
-            for (int i = 0; i < size; i++)
+            for (var i = 0; i < size; i++)
             {
                 paramArray.add(tuple.getValue(i));
             }
@@ -94,19 +93,17 @@ public class DbUtility
             dbParams.add(paramArray);
         }
 
-        JsonObject request = new JsonObject()
+        var request = new JsonObject()
                 .put("query", query)
                 .put("params", dbParams);
 
         try
         {
-            return App.vertx.eventBus().<JsonArray>request(
+            return vertx.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS,
                             request
                     )
-
                     .map(Message::body)
-
                     .onFailure(err ->
                             logger.warn("❌ Failed to execute...\n" + query + "\nWith params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]")) + "\nError => " + err.getMessage()));
         }

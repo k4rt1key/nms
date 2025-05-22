@@ -9,20 +9,41 @@ import org.nms.constants.Config;
 
 public class PgClient
 {
-    private static final PgConnectOptions connectOptions = new PgConnectOptions()
-                                                                .setPort(Config.DB_PORT)
-                                                                .setHost(Config.DB_URL)
-                                                                .setDatabase(Config.DB_NAME)
-                                                                .setUser(Config.DB_USER)
-                                                                .setPassword(Config.DB_PASSWORD);
+    private final SqlClient sqlClientInstance;
 
-    private static final PoolOptions poolOptions = new PoolOptions()
-                                                        .setMaxSize(5);
+    private static PgClient instance;
 
-    public static final SqlClient clientInstance = PgBuilder
-                                                                .client()
-                                                                .with(poolOptions)
-                                                                .connectingTo(connectOptions)
-                                                                .using(App.vertx)
-                                                                .build();
+    private PgClient()
+    {
+        var connectOptions = new PgConnectOptions()
+                .setPort(Config.DB_PORT)
+                .setHost(Config.DB_URL)
+                .setDatabase(Config.DB_NAME)
+                .setUser(Config.DB_USER)
+                .setPassword(Config.DB_PASSWORD);
+
+        var poolOptions = new PoolOptions().setMaxSize(5);
+
+        this.sqlClientInstance = PgBuilder
+                .client()
+                .with(poolOptions)
+                .connectingTo(connectOptions)
+                .using(App.vertx)
+                .build();
+    }
+
+    // Static method to get the singleton instance
+    public static PgClient getInstance()
+    {
+        if (instance == null) {
+            instance = new PgClient();
+        }
+        return instance;
+    }
+
+    // Method to access the SQL client
+    public SqlClient getSqlClient()
+    {
+        return this.sqlClientInstance;
+    }
 }

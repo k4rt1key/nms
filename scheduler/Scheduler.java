@@ -1,4 +1,4 @@
-package org.nms;
+package org.nms.scheduler;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
@@ -8,10 +8,13 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
 
 import static org.nms.App.logger;
+
+import org.nms.App;
+import org.nms.cache.MonitorCache;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.database.DbUtility;
+import org.nms.utils.ApiUtils;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -26,7 +29,7 @@ public class Scheduler extends AbstractVerticle
     public void start(Promise<Void> startPromise)
     {
         // Populate cache
-        var populateCache = Cache.populate();
+        var populateCache = MonitorCache.getInstance().init();
 
         populateCache.onComplete(populateCacheResult ->
         {
@@ -56,7 +59,7 @@ public class Scheduler extends AbstractVerticle
 
     private void pollTimedOutGroups()
     {
-        var timedOutGroups = Cache.collectTimedOutGroups(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
+        var timedOutGroups = MonitorCache.getInstance().collectTimedOutGroups(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
         {
@@ -174,7 +177,7 @@ public class Scheduler extends AbstractVerticle
 
         if (!insertValuesBatch.isEmpty())
         {
-            var saveRequest = DbUtility.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
+            var saveRequest = ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
 
             saveRequest.onComplete(insertInDbResult ->
             {

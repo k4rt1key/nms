@@ -13,6 +13,7 @@ import io.vertx.sqlclient.Tuple;
 import static org.nms.App.logger;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
+import org.nms.utils.ApiUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,7 @@ public class Database extends AbstractVerticle
     {
         try
         {
-            dbClient = PgClient.clientInstance;
+            dbClient = PgClient.getInstance().getSqlClient();
 
             if (dbClient == null)
             {
@@ -40,14 +41,14 @@ public class Database extends AbstractVerticle
             vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::handleExecuteSqlBatch);
 
             Future.join(List.of(
-                    DbUtility.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                    DbUtility.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
+                    ApiUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
+                    ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
             )).onComplete(allSchemasCreated ->
             {
                 if(allSchemasCreated.succeeded())
@@ -87,15 +88,13 @@ public class Database extends AbstractVerticle
                 });
     }
 
-    private void handleExecuteSql(Message<String> message) {
-        String query = message.body();
+    private void handleExecuteSql(Message<String> message)
+    {
+        var query = message.body();
 
         dbClient.preparedQuery(query)
-
                 .execute()
-
                 .map(this::toJsonArray)
-
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
@@ -111,18 +110,15 @@ public class Database extends AbstractVerticle
 
     private void handleExecuteSqlWithParams(Message<JsonObject> message)
     {
-        JsonObject request = message.body();
+        var request = message.body();
 
-        String query = request.getString("query");
+        var query = request.getString("query");
 
-        JsonArray params = request.getJsonArray("params");
+        var params = request.getJsonArray("params");
 
         dbClient.preparedQuery(query)
-
                 .execute(Tuple.wrap(params.getList().toArray()))
-
                 .map(this::toJsonArray)
-
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
@@ -154,11 +150,8 @@ public class Database extends AbstractVerticle
         }
 
         dbClient.preparedQuery(query)
-
                 .executeBatch(tuples)
-
                 .map(this::toJsonArray)
-
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
