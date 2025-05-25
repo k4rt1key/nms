@@ -15,7 +15,7 @@ import org.nms.validators.Validators;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -70,7 +70,7 @@ public class Discovery extends AbstractVerticle
                             .compose(statusUpdationResult ->
                             {
                                 // Step 3: Delete existing results
-                                return ApiUtils.sendQueryExecutionRequest (
+                                return DbUtils.sendQueryExecutionRequest (
                                         Queries.Discovery.DELETE_RESULT,
                                         new JsonArray().add(id)
                                 );
@@ -203,7 +203,7 @@ public class Discovery extends AbstractVerticle
     {
         Promise<JsonObject> promise = Promise.promise();
 
-        ApiUtils.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
+        DbUtils.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
                 .onComplete(asyncResult ->
                 {
                     if (asyncResult.succeeded())
@@ -232,7 +232,7 @@ public class Discovery extends AbstractVerticle
     {
         Promise<Void> promise = Promise.promise();
 
-        ApiUtils.sendQueryExecutionRequest(
+        DbUtils.sendQueryExecutionRequest(
                         Queries.Discovery.UPDATE_STATUS,
                         new JsonArray().add(id).add(status)
                 )
@@ -278,7 +278,7 @@ public class Discovery extends AbstractVerticle
         // Insert failed IPs if any
         if (!pingCheckFailedIps.isEmpty())
         {
-            ApiUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, pingCheckFailedIps);
+            DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, pingCheckFailedIps);
         }
 
         return pingCheckPassedIps;
@@ -311,7 +311,7 @@ public class Discovery extends AbstractVerticle
         // Insert failed IPs if any
         if (!portCheckFailedIps.isEmpty())
         {
-            ApiUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, portCheckFailedIps);
+            DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, portCheckFailedIps);
         }
 
         return portCheckPassedIps;
@@ -349,11 +349,11 @@ public class Discovery extends AbstractVerticle
         // Batch insert results, handling empty lists to avoid batch query errors
         Future<JsonArray> failureIps = credentialCheckFailedIps.isEmpty()
                 ? Future.succeededFuture(new JsonArray())
-                : ApiUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckFailedIps);
+                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckFailedIps);
 
         Future<JsonArray> successIps = credentialCheckSuccessIps.isEmpty()
                 ? Future.succeededFuture(new JsonArray())
-                : ApiUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckSuccessIps);
+                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckSuccessIps);
 
         return Future.join(failureIps, successIps)
                 .compose(v -> Future.succeededFuture());

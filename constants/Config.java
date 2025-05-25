@@ -18,6 +18,8 @@ public class Config
 
     public static final long MAX_IP_COUNT = 1024;
 
+    public static final String SCHEMA_FILE_PATH = "src/main/resources/schema.json";
+
     // ===== DB =====
     public static final Integer DB_PORT = 5000;
 

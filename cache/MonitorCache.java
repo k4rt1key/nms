@@ -11,9 +11,9 @@ import static org.nms.App.logger;
 
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
-public class MonitorCache
+public class MonitorCache implements AbstractCache
 {
     private static MonitorCache instance;
 
@@ -29,23 +29,27 @@ public class MonitorCache
         return instance;
     }
 
+    // ===== Cache =====
+
     private final ConcurrentHashMap<Integer, JsonObject> cachedMetricGroups = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();
 
-    // Populate cache from database
+    // ===== Methods =====
+
+    @Override
     public Future<JsonArray> init()
     {
         try
         {
-            return ApiUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
+            return DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
                     .onComplete(monitorArrayResult ->
                     {
                         if(monitorArrayResult.succeeded())
                         {
                             if(!monitorArrayResult.result().isEmpty())
                             {
-                                insertMonitorArray(monitorArrayResult.result());
+                                insert(monitorArrayResult.result());
                             }
                         }
                     });
@@ -57,8 +61,8 @@ public class MonitorCache
         }
     }
 
-    // Insert monitors into cache
-    public void insertMonitorArray(JsonArray monitorArray)
+    @Override
+    public void insert(JsonArray monitorArray)
     {
         for (var i = 0; i < monitorArray.size(); i++)
         {
@@ -97,8 +101,8 @@ public class MonitorCache
         logger.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
     }
 
-    // Update metric groups in cache
-    public void updateMetricGroups(JsonArray metricGroups)
+    @Override
+    public void update(JsonArray metricGroups)
     {
         for (var i = 0; i < metricGroups.size(); i++)
         {
@@ -139,8 +143,8 @@ public class MonitorCache
         logger.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
     }
 
-    // Delete metric groups for a specific monitor
-    public void deleteMetricGroups(Integer monitorId)
+    @Override
+    public void delete(Integer monitorId)
     {
         var removedCount = new ArrayList<Integer>();
 
@@ -159,7 +163,7 @@ public class MonitorCache
     }
 
     // Decrement intervals and collect timed-out metric groups
-    public List<JsonObject> collectTimedOutGroups(int interval)
+    public List<JsonObject> collect(int interval)
     {
         var timedOutMetricGroups = new ArrayList<JsonObject>();
 

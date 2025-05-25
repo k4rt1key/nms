@@ -17,6 +17,8 @@ public class Fields
 
     public static class User
     {
+        public static final String TABLE_NAME = "users";
+
        public static final String ID = "id";
 
        public static final String NAME = "name";
@@ -96,6 +98,8 @@ public class Fields
 
     public static class Monitor
     {
+        public static final String TABLE_NAME = "monitor";
+
         public static final String ID = "id";
 
         public static final String IP = "ip";
@@ -228,5 +232,21 @@ public class Fields
         public static final String EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS = "database.execute.sql.params";
 
         public static final String EXECUTE_SQL_QUERY_BATCH_ADDRESS = "database.execute.sql.batch";
+    }
+
+    public static class Operations
+    {
+        public static final String GET = "GET";
+
+        public static final String LIST = "LIST";
+
+        public static final String INSERT = "INSERT";
+
+        public static final String UPDATE = "UPDATE";
+
+        public static final String DELETE = "DELETE";
+
+        public static final String CREATE_SCHEMA = "CREATE_SCHEMA";
+
     }
 }

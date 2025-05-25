@@ -5,7 +5,7 @@ import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Config;
 
 import static org.nms.App.logger;
-import static org.nms.utils.DbUtils.sendFailure;
+import static org.nms.utils.ApiUtils.sendFailure;
 
 public class Validators
 {

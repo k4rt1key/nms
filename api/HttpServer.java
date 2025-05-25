@@ -13,7 +13,7 @@ import io.vertx.ext.web.handler.JWTAuthHandler;
 
 import org.nms.App;
 import static org.nms.App.logger;
-import static org.nms.utils.DbUtils.sendFailure;
+import static org.nms.utils.ApiUtils.sendFailure;
 
 import org.nms.constants.Config;
 

@@ -7,8 +7,6 @@ import io.vertx.core.json.JsonObject;
 import static org.nms.App.logger;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -30,7 +28,6 @@ public class Plugin extends AbstractVerticle
 
         logger.info("✅ Plugin Verticle Deployed");
     }
-
 
     @Override
     public void stop()

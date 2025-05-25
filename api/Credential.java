@@ -6,14 +6,14 @@ import io.vertx.ext.web.RoutingContext;
 import org.nms.validators.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import static org.nms.App.vertx;
 import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
-import static org.nms.utils.DbUtils.sendFailure;
-import static org.nms.utils.DbUtils.sendSuccess;
+import static org.nms.utils.ApiUtils.sendFailure;
+import static org.nms.utils.ApiUtils.sendSuccess;
 
-public class Credential implements BaseHandler
+public class Credential implements AbstractHandler
 {
     private static Credential instance;
 
@@ -55,7 +55,7 @@ public class Credential implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -83,7 +83,7 @@ public class Credential implements BaseHandler
 
         if(id == -1) { return; }
 
-        var queryRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var queryRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         queryRequest.onComplete(asyncResult ->
         {
@@ -124,7 +124,7 @@ public class Credential implements BaseHandler
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        ApiUtils.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
+        DbUtils.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
                 .add(name)
                 .add(username)
                 .add(password)
@@ -163,7 +163,7 @@ public class Credential implements BaseHandler
                         Fields.Credential.PASSWORD}, false)
         ) { return; }
 
-        var checkRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var checkRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         checkRequest.onComplete(asyncResult ->
         {
@@ -184,7 +184,7 @@ public class Credential implements BaseHandler
 
                 var password = ctx.body().asJsonObject().getString("password");
 
-                ApiUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
+                DbUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)
                         .add(name)
                         .add(username)
@@ -217,7 +217,7 @@ public class Credential implements BaseHandler
 
         if(id == -1) { return; }
 
-        ApiUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -230,7 +230,7 @@ public class Credential implements BaseHandler
                     return;
                 }
 
-                var deleteRequest = ApiUtils.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
+                var deleteRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
 
                 deleteRequest.onComplete(deleteResult ->
                 {

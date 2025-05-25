@@ -14,7 +14,7 @@ import org.nms.cache.MonitorCache;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -36,7 +36,7 @@ public class Scheduler extends AbstractVerticle
             if (populateCacheResult.succeeded())
             {
                 // Start scheduler
-                timerId = App.vertx.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> pollTimedOutGroups());
+                timerId = App.vertx.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> collect());
 
                 logger.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
 
@@ -57,9 +57,9 @@ public class Scheduler extends AbstractVerticle
         logger.debug("⚠ Scheduler stopped");
     }
 
-    private void pollTimedOutGroups()
+    private void collect()
     {
-        var timedOutGroups = MonitorCache.getInstance().collectTimedOutGroups(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
+        var timedOutGroups = MonitorCache.getInstance().collect(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
         {
@@ -177,7 +177,7 @@ public class Scheduler extends AbstractVerticle
 
         if (!insertValuesBatch.isEmpty())
         {
-            var saveRequest = ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
+            var saveRequest = DbUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
 
             saveRequest.onComplete(insertInDbResult ->
             {
