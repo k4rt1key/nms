@@ -263,7 +263,14 @@ public class Discovery implements BaseHandler
             }
             else
             {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                if(asyncResult.cause().getMessage().contains("23505"))
+                {
+                    sendFailure(ctx, 500, "Error during creating discovery, discovery with that name already exist");
+                }
+                else
+                {
+                    sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                }
             }
         });
     }
@@ -558,6 +565,7 @@ public class Discovery implements BaseHandler
         if (port < 1 || port > 65535)
         {
             sendFailure(ctx, 400, "Port must be between 1 and 65535");
+
             return true;
         }
 

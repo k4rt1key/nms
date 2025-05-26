@@ -187,7 +187,14 @@ public class Provision implements BaseHandler
                         }
                         else
                         {
-                            sendFailure(ctx, 500, "Error during provisioning", provisionsInsertion.cause().getMessage());
+                            if(provisionsInsertion.cause().getMessage().contains("23505"))
+                            {
+                                sendFailure(ctx, 500, "Error during provisioning, Provision Already exist for one of the ip");
+                            }
+                            else
+                            {
+                                sendFailure(ctx, 500, "Error during provisioning", provisionsInsertion.cause().getMessage());
+                            }
                         }
                     });
                 }

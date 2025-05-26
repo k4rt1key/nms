@@ -54,8 +54,7 @@ public class Queries
             CREATE TABLE IF NOT EXISTS credential (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(255) UNIQUE NOT NULL,
-                username VARCHAR(255),
-                password VARCHAR(255)
+                credential JSONB NOT NULL
             );
             """;
 
@@ -71,8 +70,8 @@ public class Queries
             """;
 
         public static final String INSERT = """
-            INSERT INTO credential (name, username, password)
-            VALUES ($1, $2, $3)
+            INSERT INTO credential (name, credential)
+            VALUES ($1, $2)
             RETURNING *;
             """;
 
@@ -80,8 +79,15 @@ public class Queries
             UPDATE credential
             SET
                 name = COALESCE($2, name),
-                username = COALESCE($3, username),
-                password = COALESCE($4, password)
+                credential = jsonb_set(
+                    jsonb_set(
+                        credential,
+                        '{username}',
+                        to_jsonb(COALESCE($3, credential->>'username'))
+                    ),
+                    '{password}',
+                    to_jsonb(COALESCE($4, credential->>'password'))
+                )
             WHERE id = $1
             RETURNING *;
             """;
@@ -138,8 +144,7 @@ public class Queries
                     JSON_BUILD_OBJECT(
                         'id', cp.id,
                         'name', cp.name,
-                        'username', cp.username,
-                        'password', cp.password
+                        'credential', cp.credential
                     )
                 ) AS credential
             FROM discovery dp
@@ -164,8 +169,7 @@ public class Queries
                             'credential', json_build_object(
                                 'id', cp.id,
                                 'name', cp.name,
-                                'username', cp.username,
-                                'password', cp.password
+                                'credential', cp.credential
                             ),
                             'message', dr.message,
                             'status', dr.status,
@@ -194,8 +198,7 @@ public class Queries
                     JSON_BUILD_OBJECT(
                         'id', cp.id,
                         'name', cp.name,
-                        'username', cp.username,
-                        'password', cp.password
+                        'credential', cp.credential
                     )
                 ) AS credential
             FROM discovery dp
@@ -219,8 +222,7 @@ public class Queries
                             'credential', json_build_object(
                                 'id', cp.id,
                                 'name', cp.name,
-                                'username', cp.username,
-                                'password', cp.password
+                                'credential', cp.credential
                             ),
                             'message', dr.message,
                             'status', dr.status,
@@ -331,8 +333,8 @@ public class Queries
             SELECT p.id, p.ip, p.port,
                    json_build_object(
                        'id', c.id,
-                       'username', c.username,
-                       'password', c.password
+                       'name', c.name,
+                       'credential', c.credential
                    ) AS credential,
                    json_agg(json_build_object(
                        'id', m.id,
@@ -352,8 +354,8 @@ public class Queries
             SELECT p.id, p.ip, p.port,
                    json_build_object(
                        'id', c.id,
-                       'username', c.username,
-                       'password', c.password
+                       'name', c.name,
+                       'credential', c.credential
                    ) AS credential,
                    json_agg(json_build_object(
                        'id', m.id,
@@ -395,7 +397,7 @@ public class Queries
             ),
             inserted_metrics AS (
                 INSERT INTO metric_group (monitor_id, name, polling_interval)
-                SELECT p.id, m.name, """+ Config.SCHEDULER_CHECKING_INTERVAL + """
+                SELECT p.id, m.name,"""+ Config.SCHEDULER_CHECKING_INTERVAL + """
                 FROM inserted_monitor p
                 CROSS JOIN metric_group_names m
                 RETURNING *
@@ -403,10 +405,9 @@ public class Queries
             SELECT
                 p.*,
                 json_build_object(
-                    'id', c.id,
-                    'name', c.name,
-                    'username', c.username,
-                    'password', c.password
+                       'id', c.id,
+                       'name', c.name,
+                       'credential', c.credential
                 ) AS credential,
                 COALESCE(
                     (SELECT json_agg(

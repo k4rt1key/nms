@@ -22,7 +22,7 @@ public class PgClient
                 .setUser(Config.DB_USER)
                 .setPassword(Config.DB_PASSWORD);
 
-        var poolOptions = new PoolOptions().setMaxSize(5);
+        var poolOptions = new PoolOptions().setMaxSize(Config.NUMBER_OF_DB_VERTICLE * 5);
 
         this.sqlClientInstance = PgBuilder
                 .client()
@@ -35,9 +35,11 @@ public class PgClient
     // Static method to get the singleton instance
     public static PgClient getInstance()
     {
-        if (instance == null) {
+        if (instance == null)
+        {
             instance = new PgClient();
         }
+
         return instance;
     }
 

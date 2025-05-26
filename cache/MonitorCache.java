@@ -149,7 +149,9 @@ public class MonitorCache
             if (entry.getValue().getInteger(Fields.MonitorCache.MONITOR_ID).equals(monitorId))
             {
                 cachedMetricGroups.remove(entry.getKey());
+
                 removedCount.add(entry.getKey());
+
                 return true;
             }
             return false;
@@ -167,7 +169,9 @@ public class MonitorCache
         cachedMetricGroups.entrySet().removeIf(entry ->
         {
             var value = entry.getValue();
+
             var currentInterval = value.getInteger(Fields.MonitorCache.POLLING_INTERVAL, 0);
+
             var updatedInterval = Math.max(0, currentInterval - interval);
 
             // If interval reaches 0, it's timed out
@@ -200,6 +204,7 @@ public class MonitorCache
         });
 
         logger.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
+
         return timedOutMetricGroups;
     }
 }

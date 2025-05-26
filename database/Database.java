@@ -54,6 +54,7 @@ public class Database extends AbstractVerticle
                 if(allSchemasCreated.succeeded())
                 {
                     logger.info("✅ Successfully deployed Database Verticle");
+
                     startPromise.complete();
                 }
                 else

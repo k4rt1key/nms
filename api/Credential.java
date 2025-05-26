@@ -9,6 +9,7 @@ import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
 import static org.nms.App.vertx;
+import static org.nms.constants.Fields.Credential.*;
 import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
 import static org.nms.utils.ApiUtils.sendSuccess;
@@ -64,6 +65,7 @@ public class Credential implements BaseHandler
                 if (credentials.isEmpty())
                 {
                     sendFailure(ctx, 404, "No credentials found");
+
                     return;
                 }
 
@@ -114,35 +116,41 @@ public class Credential implements BaseHandler
         if (
                 Validators.validateInputFields(ctx, new String[]{
                                                         Fields.Credential.NAME,
-                                                        Fields.Credential.USERNAME,
-                                                        Fields.Credential.PASSWORD}, true)
+                                                        CREDENTIAL,
+                }, true)
         ) { return; }
 
-        var name = ctx.body().asJsonObject().getString("name");
+        var name = ctx.body().asJsonObject().getString(NAME);
 
-        var username = ctx.body().asJsonObject().getString("username");
-
-        var password = ctx.body().asJsonObject().getString("password");
+        var credentialInput = ctx.body().asJsonObject().getJsonObject(CREDENTIAL);
 
         DbUtils.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
                 .add(name)
-                .add(username)
-                .add(password)
+                .add(credentialInput)
         ).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
                 var credential = asyncResult.result();
+
                 if (credential.isEmpty())
                 {
                     sendFailure(ctx, 400, "Cannot create credential");
+
                     return;
                 }
                 sendSuccess(ctx, 201, "Credential created", credential);
             }
             else
             {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                if(asyncResult.cause().getMessage().contains("23505"))
+                {
+                    sendFailure(ctx, 500, "Error during creating credential, credential with that name already exist");
+                }
+                else
+                {
+                    sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
+                }
             }
         });
     }
@@ -159,7 +167,7 @@ public class Credential implements BaseHandler
         if (
                 Validators.validateInputFields(ctx, new String[]{
                         Fields.Credential.NAME,
-                        Fields.Credential.USERNAME,
+                        USERNAME,
                         Fields.Credential.PASSWORD}, false)
         ) { return; }
 
@@ -178,11 +186,11 @@ public class Credential implements BaseHandler
                     return;
                 }
 
-                var name = ctx.body().asJsonObject().getString("name");
+                var name = ctx.body().asJsonObject().getString(NAME);
 
-                var username = ctx.body().asJsonObject().getString("username");
+                var username = ctx.body().asJsonObject().getString(USERNAME);
 
-                var password = ctx.body().asJsonObject().getString("password");
+                var password = ctx.body().asJsonObject().getString(PASSWORD);
 
                 DbUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)

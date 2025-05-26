@@ -18,6 +18,8 @@ public class Config
 
     public static final long MAX_IP_COUNT = 1024;
 
+    public static final int NUMBER_OF_DB_VERTICLE = 1;
+
     // ===== DB =====
     public static final Integer DB_PORT = 5000;
 
