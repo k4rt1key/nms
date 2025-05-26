@@ -11,7 +11,7 @@ import static org.nms.App.logger;
 
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 public class MonitorCache
 {
@@ -38,7 +38,7 @@ public class MonitorCache
     {
         try
         {
-            return ApiUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
+            return DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
                     .onComplete(monitorArrayResult ->
                     {
                         if(monitorArrayResult.succeeded())

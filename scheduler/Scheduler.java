@@ -14,7 +14,7 @@ import org.nms.cache.MonitorCache;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -177,7 +177,7 @@ public class Scheduler extends AbstractVerticle
 
         if (!insertValuesBatch.isEmpty())
         {
-            var saveRequest = ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
+            var saveRequest = DbUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
 
             saveRequest.onComplete(insertInDbResult ->
             {

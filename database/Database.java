@@ -13,7 +13,7 @@ import io.vertx.sqlclient.Tuple;
 import static org.nms.App.logger;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,14 +41,14 @@ public class Database extends AbstractVerticle
             vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::handleExecuteSqlBatch);
 
             Future.join(List.of(
-                    ApiUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                    ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
+                    DbUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
+                    DbUtils.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
             )).onComplete(allSchemasCreated ->
             {
                 if(allSchemasCreated.succeeded())

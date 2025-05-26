@@ -8,13 +8,13 @@ import io.vertx.ext.web.RoutingContext;
 import org.nms.validators.Validators;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import static org.nms.App.vertx;
 import static org.nms.api.HttpServer.jwtAuthHandler;
 import static org.nms.constants.Fields.ENDPOINTS.USER_ENDPOINT;
-import static org.nms.utils.DbUtils.sendFailure;
-import static org.nms.utils.DbUtils.sendSuccess;
+import static org.nms.utils.ApiUtils.sendFailure;
+import static org.nms.utils.ApiUtils.sendSuccess;
 
 public class User implements BaseHandler
 {
@@ -68,7 +68,7 @@ public class User implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_ALL).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.User.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -96,7 +96,7 @@ public class User implements BaseHandler
 
         if(id == -1) { return; }
 
-        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -128,7 +128,7 @@ public class User implements BaseHandler
                         Fields.User.PASSWORD}, true)
         ) { return; }
 
-        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
+        DbUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
 
                 .compose(user ->
                 {
@@ -144,7 +144,7 @@ public class User implements BaseHandler
 
                 .compose(useExist ->
 
-                    ApiUtils.sendQueryExecutionRequest(Queries.User.INSERT, new JsonArray()
+                    DbUtils.sendQueryExecutionRequest(Queries.User.INSERT, new JsonArray()
                             .add(ctx.body().asJsonObject().getString("name"))
                             .add(ctx.body().asJsonObject().getString("password"))
                     ))
@@ -189,7 +189,7 @@ public class User implements BaseHandler
 
         var username = ctx.body().asJsonObject().getString("name");
 
-        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -244,7 +244,7 @@ public class User implements BaseHandler
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        ApiUtils.sendQueryExecutionRequest(Queries.User.UPDATE, new JsonArray()
+        DbUtils.sendQueryExecutionRequest(Queries.User.UPDATE, new JsonArray()
                 .add(id)
                 .add(username)
                 .add(password)
@@ -270,7 +270,7 @@ public class User implements BaseHandler
 
         if(id == -1) { return; }
 
-        ApiUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -292,7 +292,7 @@ public class User implements BaseHandler
                     return;
                 }
 
-                ApiUtils.sendQueryExecutionRequest(Queries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
+                DbUtils.sendQueryExecutionRequest(Queries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
                 {
                     if (userDeletion.succeeded())
                     {

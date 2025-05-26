@@ -3,11 +3,11 @@ package org.nms.api;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Queries;
-import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
 
 import static org.nms.constants.Fields.ENDPOINTS.RESULT_ENDPOINT;
-import static org.nms.utils.DbUtils.sendFailure;
-import static org.nms.utils.DbUtils.sendSuccess;
+import static org.nms.utils.ApiUtils.sendFailure;
+import static org.nms.utils.ApiUtils.sendSuccess;
 
 public class Result implements BaseHandler
 {
@@ -33,7 +33,7 @@ public class Result implements BaseHandler
 
     public void list(RoutingContext ctx)
     {
-        ApiUtils.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL).onComplete(asyncResult ->
+        DbUtils.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
