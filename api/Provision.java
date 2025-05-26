@@ -181,7 +181,7 @@ public class Provision implements BaseHandler
                                 }
                             }
 
-                            MonitorCache.getInstance().insertMonitorArray(provisionArray);
+                            MonitorCache.getInstance().insert(provisionArray);
 
                             sendSuccess(ctx, 200, "Provisioned All Ips Which Was Correct, Ignoring Incorrect Ips", provisionArray);
                         }
@@ -227,7 +227,7 @@ public class Provision implements BaseHandler
 
                         if (!deletedMonitor.isEmpty())
                         {
-                            MonitorCache.getInstance().deleteMetricGroups(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
+                            MonitorCache.getInstance().delete(deletedMonitor.getJsonObject(0).getInteger(Fields.MetricGroup.ID));
 
                             sendSuccess(ctx, 200, "Provision deleted successfully", provision);
                         }
@@ -293,7 +293,7 @@ public class Provision implements BaseHandler
                             {
                                 var res = monitorResult.result();
 
-                                MonitorCache.getInstance().updateMetricGroups(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
+                                MonitorCache.getInstance().update(res.getJsonObject(0).getJsonArray(Fields.Monitor.METRIC_GROUP_JSON));
 
                                 sendSuccess(ctx, 200, "Updated Provision", res);
                             }

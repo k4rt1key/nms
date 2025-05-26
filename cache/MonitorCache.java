@@ -45,7 +45,7 @@ public class MonitorCache
                         {
                             if(!monitorArrayResult.result().isEmpty())
                             {
-                                insertMonitorArray(monitorArrayResult.result());
+                                insert(monitorArrayResult.result());
                             }
                         }
                     });
@@ -58,7 +58,7 @@ public class MonitorCache
     }
 
     // Insert monitors into cache
-    public void insertMonitorArray(JsonArray monitorArray)
+    public void insert(JsonArray monitorArray)
     {
         for (var i = 0; i < monitorArray.size(); i++)
         {
@@ -98,7 +98,7 @@ public class MonitorCache
     }
 
     // Update metric groups in cache
-    public void updateMetricGroups(JsonArray metricGroups)
+    public void update(JsonArray metricGroups)
     {
         for (var i = 0; i < metricGroups.size(); i++)
         {
@@ -140,7 +140,7 @@ public class MonitorCache
     }
 
     // Delete metric groups for a specific monitor
-    public void deleteMetricGroups(Integer monitorId)
+    public void delete(Integer monitorId)
     {
         var removedCount = new ArrayList<Integer>();
 
@@ -159,7 +159,7 @@ public class MonitorCache
     }
 
     // Decrement intervals and collect timed-out metric groups
-    public List<JsonObject> collectTimedOutGroups(int interval)
+    public List<JsonObject> collect(int interval)
     {
         var timedOutMetricGroups = new ArrayList<JsonObject>();
 

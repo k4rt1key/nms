@@ -59,7 +59,7 @@ public class Scheduler extends AbstractVerticle
 
     private void pollTimedOutGroups()
     {
-        var timedOutGroups = MonitorCache.getInstance().collectTimedOutGroups(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
+        var timedOutGroups = MonitorCache.getInstance().collect(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
         {
