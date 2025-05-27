@@ -34,6 +34,8 @@ public class Fields
 
         public static final String PASSWORD = "password";
 
+        public static final String PROTOCOL = "protocol";
+
         public static final String CREDENTIAL = "credential";
     }
 

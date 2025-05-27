@@ -28,6 +28,7 @@ import static org.nms.constants.Fields.DiscoveryResult.MESSAGE;
 
 public class Discovery extends AbstractVerticle
 {
+
     @Override
     public void start()
     {
@@ -672,4 +673,5 @@ public class Discovery extends AbstractVerticle
             }
         }
     }
+
 }

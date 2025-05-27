@@ -88,6 +88,7 @@ public class Plugin extends AbstractVerticle
             catch (Exception exception)
             {
                 logger.error("❌ Error spawning plugin: " + exception.getMessage());
+
                 // Send empty response
                 return new JsonObject();
             }

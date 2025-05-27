@@ -53,6 +53,7 @@ public class Queries
         public static final String CREATE_SCHEMA = """
             CREATE TABLE IF NOT EXISTS credential (
                 id SERIAL PRIMARY KEY,
+                protocol VARCHAR(255) DEFAULT 'winrm',
                 name VARCHAR(255) UNIQUE NOT NULL,
                 credential JSONB NOT NULL
             );
@@ -70,8 +71,8 @@ public class Queries
             """;
 
         public static final String INSERT = """
-            INSERT INTO credential (name, credential)
-            VALUES ($1, $2)
+            INSERT INTO credential (name, credential, protocol)
+            VALUES ($1, $2, 'winrm')
             RETURNING *;
             """;
 
@@ -87,7 +88,8 @@ public class Queries
                     ),
                     '{password}',
                     to_jsonb(COALESCE($4, credential->>'password'))
-                )
+                ),
+                protocol = COALESCE($5, protocol)
             WHERE id = $1
             RETURNING *;
             """;
@@ -144,6 +146,7 @@ public class Queries
                     JSON_BUILD_OBJECT(
                         'id', cp.id,
                         'name', cp.name,
+                        'protocol', cp.protocol,
                         'credential', cp.credential
                     )
                 ) AS credential
@@ -169,6 +172,7 @@ public class Queries
                             'credential', json_build_object(
                                 'id', cp.id,
                                 'name', cp.name,
+                                'protocol', cp.protocol,
                                 'credential', cp.credential
                             ),
                             'message', dr.message,
@@ -198,6 +202,7 @@ public class Queries
                     JSON_BUILD_OBJECT(
                         'id', cp.id,
                         'name', cp.name,
+                        'protocol', cp.protocol,
                         'credential', cp.credential
                     )
                 ) AS credential
@@ -221,6 +226,7 @@ public class Queries
                             'ip', dr.ip,
                             'credential', json_build_object(
                                 'id', cp.id,
+                                'protocol', cp.protocol,
                                 'name', cp.name,
                                 'credential', cp.credential
                             ),
@@ -334,6 +340,7 @@ public class Queries
                    json_build_object(
                        'id', c.id,
                        'name', c.name,
+                       'protocol', c.protocol,
                        'credential', c.credential
                    ) AS credential,
                    json_agg(json_build_object(
@@ -355,6 +362,7 @@ public class Queries
                    json_build_object(
                        'id', c.id,
                        'name', c.name,
+                       'protocol', c.protocol,
                        'credential', c.credential
                    ) AS credential,
                    json_agg(json_build_object(
@@ -407,6 +415,7 @@ public class Queries
                 json_build_object(
                        'id', c.id,
                        'name', c.name,
+                       'protocol', c.protocol,
                        'credential', c.credential
                 ) AS credential,
                 COALESCE(

@@ -166,9 +166,11 @@ public class Credential implements BaseHandler
 
         if (
                 Validators.validateInputFields(ctx, new String[]{
-                        Fields.Credential.NAME,
+                        NAME,
                         USERNAME,
-                        Fields.Credential.PASSWORD}, false)
+                        PASSWORD,
+                        PROTOCOL
+                }, false)
         ) { return; }
 
         var checkRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
@@ -192,11 +194,14 @@ public class Credential implements BaseHandler
 
                 var password = ctx.body().asJsonObject().getString(PASSWORD);
 
+                var protocol = ctx.body().asJsonObject().getString(PROTOCOL);
+
                 DbUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)
                         .add(name)
                         .add(username)
                         .add(password)
+                        .add(protocol)
                 ).onComplete(updateResult ->
                 {
                     if (updateResult.succeeded())
