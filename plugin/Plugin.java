@@ -4,11 +4,9 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 import org.nms.constants.Config;
 import org.nms.constants.Fields;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -28,14 +26,14 @@ public class Plugin extends AbstractVerticle
                     .onComplete(pluginResponse -> message.reply(pluginResponse.result()));
         });
 
-        logger.info("✅ Plugin Verticle Deployed");
+        LOGGER.info("✅ Plugin Verticle Deployed");
     }
 
 
     @Override
     public void stop()
     {
-        logger.info("⚠ Plugin Verticle Stopped");
+        LOGGER.info("⚠ Plugin Verticle Stopped");
     }
 
     /**
@@ -55,7 +53,7 @@ public class Plugin extends AbstractVerticle
                 // Prepare go command
                 var goCommand = new String[] {Config.PLUGIN_PATH, encodedRequest};
 
-                logger.debug("Spawning plugin with request: " + encodedRequest);
+                LOGGER.debug("Spawning plugin with request: " + encodedRequest);
 
                 var builder = new ProcessBuilder(goCommand);
 
@@ -68,7 +66,7 @@ public class Plugin extends AbstractVerticle
                 // If Timeout
                 if (!doneExecuting)
                 {
-                    logger.warn("⚠ Plugin is not responding within " + timeout + " seconds, process is being terminated !");
+                    LOGGER.warn("⚠ Plugin is not responding within " + timeout + " seconds, process is being terminated !");
 
                     process.destroyForcibly();
 
@@ -81,13 +79,13 @@ public class Plugin extends AbstractVerticle
 
                 var output = reader.lines().collect(Collectors.joining());
 
-                logger.debug("Plugin response: " + output);
+                LOGGER.debug("Plugin response: " + output);
 
                 return new JsonObject(output);
             }
             catch (Exception exception)
             {
-                logger.error("❌ Error spawning plugin: " + exception.getMessage());
+                LOGGER.error("❌ Error spawning plugin: " + exception.getMessage());
 
                 // Send empty response
                 return new JsonObject();

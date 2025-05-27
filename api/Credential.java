@@ -8,7 +8,7 @@ import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
-import static org.nms.App.vertx;
+import static org.nms.App.VERTX;
 import static org.nms.constants.Fields.Credential.*;
 import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
@@ -33,7 +33,7 @@ public class Credential implements BaseHandler
     @Override
     public void init(Router router)
     {
-        var credentialRouter = Router.router(vertx);
+        var credentialRouter = Router.router(VERTX);
 
         credentialRouter.get("/")
                 .handler(this::list);

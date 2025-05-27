@@ -6,7 +6,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.sqlclient.Tuple;
@@ -43,18 +43,18 @@ public class Discovery extends AbstractVerticle
                     {
                         if (asyncResult.failed())
                         {
-                            logger.error("Error running discovery id " + id + ": " + asyncResult.cause().getMessage());
+                            LOGGER.error("Error running discovery id " + id + ": " + asyncResult.cause().getMessage());
                         }
                     });
         });
 
-        logger.debug("✅ Discovery Verticle Deployed, on thread [ " + Thread.currentThread().getName() + " ] ");
+        LOGGER.debug("✅ Discovery Verticle Deployed, on thread [ " + Thread.currentThread().getName() + " ] ");
     }
 
     @Override
     public void stop()
     {
-        logger.info("\uD83D\uDED1 Discovery Verticle Stopped");
+        LOGGER.info("\uD83D\uDED1 Discovery Verticle Stopped");
     }
 
     private Future<Void> runDiscoveryProcess(int id)
@@ -138,7 +138,7 @@ public class Discovery extends AbstractVerticle
                                 // Step 3: Credentials Check - only for IPs that passed port check
                                 if (portPassedIps.isEmpty())
                                 {
-                                    logger.info("No IPs passed port check for discovery with id " + id);
+                                    LOGGER.info("No IPs passed port check for discovery with id " + id);
 
                                     return Future.succeededFuture();
                                 }
@@ -191,7 +191,7 @@ public class Discovery extends AbstractVerticle
             }
             else
             {
-                logger.error("Error calling plugin: " + reply.cause().getMessage());
+                LOGGER.error("Error calling plugin: " + reply.cause().getMessage());
 
                 promise.complete(new JsonArray());
             }
@@ -258,7 +258,7 @@ public class Discovery extends AbstractVerticle
 
         var pingCheckFailedIps = new ArrayList<Tuple>();
 
-        for (int i = 0; i < pingResults.size(); i++)
+        for (var i = 0; i < pingResults.size(); i++)
         {
             var result = pingResults.getJsonObject(i);
 
@@ -401,7 +401,7 @@ public class Discovery extends AbstractVerticle
         }
         catch (Exception exception)
         {
-            logger.error("Failed to convert ip string to JsonArray of ip, error: " + exception.getMessage() );
+            LOGGER.error("Failed to convert ip string to JsonArray of ip, error: " + exception.getMessage() );
 
             return new JsonArray();
         }
@@ -415,7 +415,7 @@ public class Discovery extends AbstractVerticle
             return Future.succeededFuture(new JsonArray());
         }
 
-        logger.debug("ping check request for ips: " + ips.encode());
+        LOGGER.debug("ping check request for ips: " + ips.encode());
 
         // Prepare fping command - outside executeBlocking
         var command = new String[ips.size() + 3];
@@ -429,7 +429,7 @@ public class Discovery extends AbstractVerticle
         }
 
         // execute the blocking ping operation within executeBlocking
-        return App.vertx.executeBlocking(promise ->
+        return App.VERTX.executeBlocking(promise ->
         {
             var results = new JsonArray();
 
@@ -502,13 +502,13 @@ public class Discovery extends AbstractVerticle
                     }
                 }
 
-                logger.debug("ping check passed ips: " + results.encode());
+                LOGGER.debug("ping check passed ips: " + results.encode());
 
                 promise.complete(results);
             }
             catch (Exception exception)
             {
-                logger.error("Error during ping check: " + exception.getMessage());
+                LOGGER.error("Error during ping check: " + exception.getMessage());
 
                 promise.complete(createErrorResultForAll(ips, "Error during ping check"));
             }
@@ -524,7 +524,7 @@ public class Discovery extends AbstractVerticle
                     }
                     catch (Exception exception)
                     {
-                        logger.error("Error destroying ping process: " + exception.getMessage());
+                        LOGGER.error("Error destroying ping process: " + exception.getMessage());
                     }
                 }
             }
@@ -546,7 +546,7 @@ public class Discovery extends AbstractVerticle
             return promise.future();
         }
 
-        logger.debug("port check request for ips: " + ips.encode());
+        LOGGER.debug("port check request for ips: " + ips.encode());
 
         for (var ip : ips)
         {
@@ -560,7 +560,7 @@ public class Discovery extends AbstractVerticle
 
             try
             {
-                App.vertx.createNetClient(new NetClientOptions().setConnectTimeout(Config.PORT_TIMEOUT * 1000))
+                App.VERTX.createNetClient(new NetClientOptions().setConnectTimeout(Config.PORT_TIMEOUT * 1000))
                         .connect(port, ip.toString(), asyncResult ->
                         {
                             try
@@ -593,7 +593,7 @@ public class Discovery extends AbstractVerticle
                                         .put(SUCCESS, false)
                                         .put(MESSAGE, "Something went wrong");
 
-                                logger.error("Something went wrong, error: " + exception.getMessage());
+                                LOGGER.error("Something went wrong, error: " + exception.getMessage());
                             }
                             finally
                             {
@@ -620,13 +620,13 @@ public class Discovery extends AbstractVerticle
                 {
                     if (asyncResult.succeeded())
                     {
-                        logger.debug("Port check passed ips: " + results.encode());
+                        LOGGER.debug("Port check passed ips: " + results.encode());
 
                         promise.complete(results);
                     }
                     else
                     {
-                        logger.error("Error in port check: " + asyncResult.cause().getMessage());
+                        LOGGER.error("Error in port check: " + asyncResult.cause().getMessage());
 
                         promise.complete(results);
                     }
@@ -669,7 +669,7 @@ public class Discovery extends AbstractVerticle
             }
             catch (Exception exception)
             {
-                logger.error("Error closing resource: " + exception.getMessage());
+                LOGGER.error("Error closing resource: " + exception.getMessage());
             }
         }
     }

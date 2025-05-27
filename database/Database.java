@@ -10,7 +10,7 @@ import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlClient;
 import io.vertx.sqlclient.Tuple;
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
@@ -53,13 +53,13 @@ public class Database extends AbstractVerticle
             {
                 if(allSchemasCreated.succeeded())
                 {
-                    logger.info("✅ Successfully deployed Database Verticle");
+                    LOGGER.info("✅ Successfully deployed Database Verticle");
 
                     startPromise.complete();
                 }
                 else
                 {
-                    logger.warn("⚠ Something went wrong creating db schema");
+                    LOGGER.warn("⚠ Something went wrong creating db schema");
                 }
             });
         }
@@ -78,7 +78,7 @@ public class Database extends AbstractVerticle
                 {
                     if(clientClose.succeeded())
                     {
-                        logger.info("\uD83D\uDED1 Database Verticle Stopped");
+                        LOGGER.info("\uD83D\uDED1 Database Verticle Stopped");
 
                         stopPromise.complete();
                     }

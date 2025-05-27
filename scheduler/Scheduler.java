@@ -7,7 +7,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
 
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 
 import org.nms.App;
 import org.nms.cache.MonitorCache;
@@ -36,9 +36,9 @@ public class Scheduler extends AbstractVerticle
             if (populateCacheResult.succeeded())
             {
                 // Start scheduler
-                timerId = App.vertx.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> pollTimedOutGroups());
+                timerId = App.VERTX.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> pollTimedOutGroups());
 
-                logger.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }
@@ -54,7 +54,7 @@ public class Scheduler extends AbstractVerticle
     {
         vertx.cancelTimer(timerId);
 
-        logger.debug("⚠ Scheduler stopped");
+        LOGGER.debug("⚠ Scheduler stopped");
     }
 
     private void pollTimedOutGroups()
@@ -87,7 +87,7 @@ public class Scheduler extends AbstractVerticle
                         }
                         else
                         {
-                            logger.error("❌ Error During Polling: " + pluginResponse.cause().getMessage());
+                            LOGGER.error("❌ Error During Polling: " + pluginResponse.cause().getMessage());
                         }
                     }
             );
@@ -183,7 +183,7 @@ public class Scheduler extends AbstractVerticle
             {
                 if (insertInDbResult.failed())
                 {
-                    logger.error("❌ Error during inserting polled data: " + insertInDbResult.cause().getMessage());
+                    LOGGER.error("❌ Error during inserting polled data: " + insertInDbResult.cause().getMessage());
                 }
             });
         }
@@ -194,6 +194,7 @@ public class Scheduler extends AbstractVerticle
         try
         {
             new JsonObject(s);
+
             return true;
         }
         catch (Exception exception)

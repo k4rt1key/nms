@@ -6,8 +6,8 @@ import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
-import static org.nms.App.logger;
-import static org.nms.App.vertx;
+import static org.nms.App.LOGGER;
+import static org.nms.App.VERTX;
 
 import org.nms.constants.Fields;
 
@@ -24,18 +24,18 @@ public class DbUtils
 
         try
         {
-            return vertx.eventBus().<JsonArray>request(
+            return VERTX.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS,
                             request
                     )
                     .map(Message::body)
                     .onFailure(err ->
-                            logger.warn("❌ Failed to execute...\n" + query + "\nwith params => " + params.encode() + "\nError => " + err.getMessage()));
+                            LOGGER.warn("❌ Failed to execute...\n" + query + "\nwith params => " + params.encode() + "\nError => " + err.getMessage()));
         }
 
         catch (ReplyException replyException)
         {
-            logger.warn("⚠ Query is taking more time then expected to execute");
+            LOGGER.warn("⚠ Query is taking more time then expected to execute");
 
             return Future.failedFuture("⚠ Query is taking more time then expected to execute");
         }
@@ -50,17 +50,17 @@ public class DbUtils
     {
         try
         {
-            return vertx.eventBus().<JsonArray>request(
+            return VERTX.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS,
                             query
                     )
                     .map(Message::body)
-                    .onFailure(err -> logger.warn("❌ Failed to execute...\n" + query + "\nError => " + err.getMessage()));
+                    .onFailure(err -> LOGGER.warn("❌ Failed to execute...\n" + query + "\nError => " + err.getMessage()));
         }
 
         catch (ReplyException replyException)
         {
-            logger.warn("⚠ Query is taking more time then expected to execute");
+            LOGGER.warn("⚠ Query is taking more time then expected to execute");
 
             return Future.failedFuture("⚠ Query is taking more time then expected to execute");
         }
@@ -97,18 +97,18 @@ public class DbUtils
 
         try
         {
-            return vertx.eventBus().<JsonArray>request(
+            return VERTX.eventBus().<JsonArray>request(
                             Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS,
                             request
                     )
                     .map(Message::body)
                     .onFailure(err ->
-                            logger.warn("❌ Failed to execute...\n" + query + "\nWith params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]")) + "\nError => " + err.getMessage()));
+                            LOGGER.warn("❌ Failed to execute...\n" + query + "\nWith params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]")) + "\nError => " + err.getMessage()));
         }
 
         catch (ReplyException replyException)
         {
-            logger.warn("⚠ Query is taking more time then expected to execute");
+            LOGGER.warn("⚠ Query is taking more time then expected to execute");
 
             return Future.failedFuture("⚠ Query is taking more time then expected to execute");
         }

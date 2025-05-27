@@ -28,7 +28,7 @@ public class PgClient
                 .client()
                 .with(poolOptions)
                 .connectingTo(connectOptions)
-                .using(App.vertx)
+                .using(App.VERTX)
                 .build();
     }
 

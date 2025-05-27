@@ -17,38 +17,38 @@ import org.nms.scheduler.Scheduler;
 
 public class App
 {
-    public static final Vertx vertx = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Config.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
+    public static final Vertx VERTX = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Config.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
 
-    public static final Logger logger = LoggerFactory.getLogger(App.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(App.class);
 
     public static void main(String[] args)
     {
 
-        Runtime.getRuntime().addShutdownHook(new Thread(vertx::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(VERTX::close));
 
         try
         {
-            vertx.deployVerticle(new Database())
-                    .compose(v -> vertx.deployVerticle(new Scheduler()))
-                    .compose(v -> vertx.deployVerticle(new Plugin()))
-                    .compose(v -> vertx.deployVerticle(new Discovery()))
-                    .compose(v -> vertx.deployVerticle(new HttpServer()))
+            VERTX.deployVerticle(new Database())
+                    .compose(v -> VERTX.deployVerticle(new Scheduler()))
+                    .compose(v -> VERTX.deployVerticle(new Plugin()))
+                    .compose(v -> VERTX.deployVerticle(new Discovery()))
+                    .compose(v -> VERTX.deployVerticle(new HttpServer()))
 
             .onComplete(asyncResult ->
             {
                 if (asyncResult.succeeded())
                 {
-                    logger.info("✅ Successfully Started NMS Application");
+                    LOGGER.info("✅ Successfully Started NMS Application");
                 }
                 else
                 {
-                    logger.error("❌ Failed to start NMS Application, cause => " + asyncResult.cause().getMessage());
+                    LOGGER.error("❌ Failed to start NMS Application, cause => " + asyncResult.cause().getMessage());
                 }
             });
         }
         catch (Exception exception)
         {
-            logger.error("❌ Failed to start NMS Application, cause => " + exception.getMessage());
+            LOGGER.error("❌ Failed to start NMS Application, cause => " + exception.getMessage());
         }
     }
 }

@@ -4,7 +4,7 @@ import inet.ipaddr.IPAddressString;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Config;
 
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 import static org.nms.utils.ApiUtils.sendFailure;
 
 public class Validators
@@ -195,7 +195,7 @@ public class Validators
         }
         catch (Exception exception)
         {
-            logger.error("Failed to validate ip and ipType, error: " + exception.getMessage() );
+            LOGGER.error("Failed to validate ip and ipType, error: " + exception.getMessage() );
 
             return true;
         }

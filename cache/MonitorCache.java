@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 
 import org.nms.constants.Fields;
 import org.nms.constants.Queries;
@@ -88,13 +88,13 @@ public class MonitorCache
                 }
                 catch (Exception exception)
                 {
-                    logger.warn("Error Inserting Monitor in cache: " + exception.getMessage());
+                    LOGGER.warn("Error Inserting Monitor in cache: " + exception.getMessage());
                 }
             }
         }
 
 
-        logger.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
+        LOGGER.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
     }
 
     // Update metric groups in cache
@@ -132,11 +132,11 @@ public class MonitorCache
             }
             catch (Exception exception)
             {
-                logger.warn("Error Updating Monitor in Cache: " + exception.getMessage());
+                LOGGER.warn("Error Updating Monitor in Cache: " + exception.getMessage());
             }
         }
 
-        logger.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
+        LOGGER.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
     }
 
     // Delete metric groups for a specific monitor
@@ -157,7 +157,7 @@ public class MonitorCache
             return false;
         });
 
-        logger.info("➖ Removed " + removedCount.size() + " Entries from Cache");
+        LOGGER.info("➖ Removed " + removedCount.size() + " Entries from Cache");
     }
 
     // Decrement intervals and collect timed-out metric groups
@@ -203,7 +203,7 @@ public class MonitorCache
             return false;
         });
 
-        logger.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
+        LOGGER.debug("⏰ Found " + timedOutMetricGroups.size() + " Timed Out Metric Groups");
 
         return timedOutMetricGroups;
     }

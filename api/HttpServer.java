@@ -12,7 +12,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.JWTAuthHandler;
 
 import org.nms.App;
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 import static org.nms.utils.ApiUtils.sendFailure;
 
 import org.nms.constants.Config;
@@ -22,7 +22,7 @@ public class HttpServer extends AbstractVerticle
     private static final JWTAuthOptions config = new JWTAuthOptions()
                                                     .setKeyStore(new KeyStoreOptions().setPath(Config.KEYSTORE_PATH).setPassword(Config.JWT_SECRET));
 
-    public static final JWTAuth jwtAuth = JWTAuth.create(App.vertx, config);
+    public static final JWTAuth jwtAuth = JWTAuth.create(App.VERTX, config);
 
     public static final JWTAuthHandler jwtAuthHandler = JWTAuthHandler.create(jwtAuth);
 
@@ -71,13 +71,13 @@ public class HttpServer extends AbstractVerticle
         {
             if(http.succeeded())
             {
-                logger.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }
             else
             {
-                logger.error("Failed To Start HTTP Server => " + http.cause());
+                LOGGER.error("Failed To Start HTTP Server => " + http.cause());
 
                 startPromise.fail(http.cause());
             }
@@ -87,7 +87,7 @@ public class HttpServer extends AbstractVerticle
     @Override
     public void stop()
     {
-        logger.info("\uD83D\uDED1 Http Server Stopped");
+        LOGGER.info("\uD83D\uDED1 Http Server Stopped");
     }
 
     public static void authenticate(RoutingContext ctx)

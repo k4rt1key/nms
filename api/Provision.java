@@ -45,7 +45,7 @@ public class Provision implements BaseHandler
     @Override
     public void init(Router router)
     {
-        var provisionRouter = Router.router(App.vertx);
+        var provisionRouter = Router.router(App.VERTX);
 
         provisionRouter.get("/")
                 .handler(this::list);

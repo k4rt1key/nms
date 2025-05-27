@@ -5,7 +5,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.sqlclient.Tuple;
-import static org.nms.App.logger;
+import static org.nms.App.LOGGER;
 
 import org.nms.validators.Validators;
 import org.nms.constants.Fields;
@@ -14,7 +14,7 @@ import org.nms.utils.DbUtils;
 
 import java.util.ArrayList;
 
-import static org.nms.App.vertx;
+import static org.nms.App.VERTX;
 import static org.nms.constants.Fields.ENDPOINTS.DISCOVERY_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
 import static org.nms.utils.ApiUtils.sendSuccess;
@@ -42,7 +42,7 @@ public class Discovery implements BaseHandler
     @Override
     public void init(Router router)
     {
-        var discoveryRouter = Router.router(vertx);
+        var discoveryRouter = Router.router(VERTX);
 
         discoveryRouter.get("/results/:id")
                 .handler(this::getDiscoveryResultsById);
@@ -253,7 +253,7 @@ public class Discovery implements BaseHandler
                         {
                             if (rollbackResult.failed())
                             {
-                                logger.error("Failed to rollback discovery creation: " + rollbackResult.cause().getMessage());
+                                LOGGER.error("Failed to rollback discovery creation: " + rollbackResult.cause().getMessage());
                             }
                         });
 
@@ -296,7 +296,7 @@ public class Discovery implements BaseHandler
                         return;
                     }
 
-                    vertx.eventBus().send(
+                    VERTX.eventBus().send(
                             Fields.EventBus.RUN_DISCOVERY_ADDRESS,
                             new JsonObject().put(Fields.Discovery.ID, id)
                     );

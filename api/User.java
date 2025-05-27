@@ -10,7 +10,7 @@ import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
-import static org.nms.App.vertx;
+import static org.nms.App.VERTX;
 import static org.nms.api.HttpServer.jwtAuthHandler;
 import static org.nms.constants.Fields.ENDPOINTS.USER_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
@@ -35,7 +35,7 @@ public class User implements BaseHandler
     @Override
     public void init(Router router)
     {
-        var userRouter = Router.router(vertx);
+        var userRouter = Router.router(VERTX);
 
         userRouter.get("/")
                 .handler(this::list);
