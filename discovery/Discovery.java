@@ -181,13 +181,13 @@ public class Discovery extends AbstractVerticle
     {
         Promise<JsonArray> promise = Promise.promise();
 
-        vertx.eventBus().<JsonObject>request(Fields.EventBus.PLUGIN_SPAWN_ADDRESS, request, reply ->
+        vertx.eventBus().<JsonArray>request(Fields.EventBus.PLUGIN_SPAWN_ADDRESS, request, reply ->
         {
             if (reply.succeeded())
             {
                 var response = reply.result().body();
 
-                promise.complete(response.getJsonArray(Fields.Discovery.RESULT_JSON, new JsonArray()));
+                promise.complete(response);
             }
             else
             {

@@ -2,6 +2,7 @@ package org.nms.plugin;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import static org.nms.App.LOGGER;
@@ -39,7 +40,7 @@ public class Plugin extends AbstractVerticle
     /**
      * Spawns plugin, Sends request and returns Json Response
      */
-    private Future<JsonObject> spawnPlugin(JsonObject request)
+    private Future<JsonArray> spawnPlugin(JsonObject request)
     {
         return vertx.executeBlocking(() ->
         {
@@ -71,24 +72,40 @@ public class Plugin extends AbstractVerticle
                     process.destroyForcibly();
 
                     // Send empty response
-                    return new JsonObject();
+                    return new JsonArray();
                 }
 
                 // Else Read output
                 var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-                var output = reader.lines().collect(Collectors.joining());
+                var response = new JsonArray();
 
-                LOGGER.debug("Plugin response: " + output);
+                String line;
 
-                return new JsonObject(output);
+                while ((line = reader.readLine()) != null)
+                {
+                    try
+                    {
+                        response.add(new JsonObject(line));
+                    }
+                    catch (Exception e)
+                    {
+                        LOGGER.warn("❌ Error Parsing Json: " + line);
+                    }
+
+                    LOGGER.debug("Plugin response: " + line);
+                }
+
+                reader.close();
+
+                return response;
             }
             catch (Exception exception)
             {
                 LOGGER.error("❌ Error spawning plugin: " + exception.getMessage());
 
                 // Send empty response
-                return new JsonObject();
+                return new JsonArray();
             }
         });
     }

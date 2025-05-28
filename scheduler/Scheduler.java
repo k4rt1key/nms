@@ -68,7 +68,7 @@ public class Scheduler extends AbstractVerticle
             var POLLING_TIMEOUT = Config.BASE_TIME + ( timedOutGroups.size() * Config.POLLING_TIMEOUT_PER_METRIC_GROUP );
 
             // Send payload to plugin
-            vertx.eventBus().<JsonObject>request(
+            vertx.eventBus().<JsonArray>request(
                     Fields.EventBus.PLUGIN_SPAWN_ADDRESS,
                     request,
                     new DeliveryOptions().setSendTimeout(POLLING_TIMEOUT * 1000L),
@@ -80,9 +80,7 @@ public class Scheduler extends AbstractVerticle
 
                             if (!response.isEmpty())
                             {
-                                var results = response.getJsonArray(Fields.PluginPollingRequest.METRIC_GROUPS, new JsonArray());
-
-                                savePollingResults(results);
+                                savePollingResults(response);
                             }
                         }
                         else
