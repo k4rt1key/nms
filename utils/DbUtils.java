@@ -101,7 +101,9 @@ public class DbUtils
                             Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS,
                             request
                     )
+
                     .map(Message::body)
+
                     .onFailure(err ->
                             LOGGER.warn("❌ Failed to execute...\n" + query + "\nWith params " + params.stream().map(Tuple::deepToString).collect(Collectors.joining(", ", "[", "]")) + "\nError => " + err.getMessage()));
         }

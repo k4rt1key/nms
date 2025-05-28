@@ -130,7 +130,7 @@ public class Queries
                 message TEXT,
                 status VARCHAR(50) NOT NULL,
                 PRIMARY KEY (discovery_id, ip),
-                time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                time VARCHAR(50)
             );
             """;
 
@@ -250,8 +250,9 @@ public class Queries
                 ip,
                 ip_type,
                 status,
-                port
-            ) VALUES ($1, $2, $3, 'PENDING', $4)
+                port,
+                time
+            ) VALUES ($1, $2, $3, 'PENDING', $4, $5)
             RETURNING *;
             """;
 
@@ -261,8 +262,9 @@ public class Queries
                 credential_id,
                 ip,
                 message,
-                status
-            ) VALUES ($1, $2, $3, $4, $5)
+                status,
+                time
+            ) VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (discovery_id, ip) DO NOTHING
             RETURNING *;
             """;
@@ -462,7 +464,7 @@ public class Queries
                 monitor_id INTEGER REFERENCES monitor(id) ON DELETE CASCADE,
                 name VARCHAR(50) NOT NULL,
                 data JSONB NOT NULL,
-                time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                time VARCHAR(50)
             );
             """;
 
@@ -471,8 +473,8 @@ public class Queries
             """;
 
         public static final String INSERT = """
-            INSERT INTO polling_result (monitor_id, name, data)
-            VALUES ($1, $2, $3)
+            INSERT INTO polling_result (monitor_id, name, data, time)
+            VALUES ($1, $2, $3, $4)
             RETURNING *;
             """;
     }

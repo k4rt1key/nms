@@ -53,6 +53,8 @@ public class Fields
 
         public static final String PENDING_STATUS = "PENDING";
 
+        public static final String RUNNING_STATUS = "RUNNING";
+
         public static final String FAILED_STATUS = "FAILED";
 
         public static final String COMPLETED_STATUS = "COMPLETED";
@@ -170,6 +172,8 @@ public class Fields
         public static final String IP = "ip";
 
         public static final String CREDENTIALS = "credential";
+
+        public static final String TIME = "time";
     }
 
     public static class PluginPollingRequest
@@ -195,11 +199,11 @@ public class Fields
     {
         public static final String MONITOR_ID = "monitor_id";
 
-        public static final String METRIC_GROUPS = "metric_groups";
-
         public static final String DATA = "data";
 
         public static final String NAME = "name";
+
+        public static final String TIME = "time";
     }
 
     public static class MonitorCache

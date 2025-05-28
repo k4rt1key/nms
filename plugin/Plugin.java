@@ -71,7 +71,6 @@ public class Plugin extends AbstractVerticle
                     }
                 });
 
-
                 // Else Read output
                 var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 

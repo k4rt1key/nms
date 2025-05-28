@@ -19,6 +19,8 @@ import org.nms.utils.DbUtils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
@@ -66,7 +68,7 @@ public class Discovery extends AbstractVerticle
                 .compose(discovery ->
                 {
                     // Step 2: Update discovery status to RUNNING
-                    return updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS)
+                    return updateDiscoveryStatus(id, RUNNING_STATUS)
 
                             .compose(statusUpdationResult ->
                             {
@@ -109,9 +111,7 @@ public class Discovery extends AbstractVerticle
                     }
                     else
                     {
-                        // If any step fails, update status to FAILED and complete with failure
-                        updateDiscoveryStatus(id, Fields.DiscoveryResult.FAILED_STATUS)
-                                .onComplete(updateStatusToFailResult -> promise.fail(statusUpdationStatus.cause().getMessage()));
+                        LOGGER.warn("Discovery Failed, cause: " + statusUpdationStatus.cause().getMessage() );
                     }
                 });
 
@@ -231,25 +231,13 @@ public class Discovery extends AbstractVerticle
 
     private Future<Void> updateDiscoveryStatus(int id, String status)
     {
-        Promise<Void> promise = Promise.promise();
+        return DbUtils.sendQueryExecutionRequest(
 
-        DbUtils.sendQueryExecutionRequest(
-                        Queries.Discovery.UPDATE_STATUS,
-                        new JsonArray().add(id).add(status)
-                )
-                .onComplete(asyncResult ->
-                {
-                    if (asyncResult.succeeded())
-                    {
-                        promise.complete();
-                    }
-                    else
-                    {
-                        promise.fail(asyncResult.cause());
-                    }
-                });
+                Queries.Discovery.UPDATE_STATUS,
 
-        return promise.future();
+                new JsonArray().add(id).add(status)
+
+        ).mapEmpty();
     }
 
     private JsonArray insertPingResults(int id, JsonArray pingResults)
@@ -272,7 +260,7 @@ public class Discovery extends AbstractVerticle
             }
             else
             {
-                pingCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.Discovery.FAILED_STATUS));
+                pingCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.Discovery.FAILED_STATUS, OffsetDateTime.now(ZoneId.of("Asia/Kolkata"))));
             }
         }
 
@@ -305,7 +293,7 @@ public class Discovery extends AbstractVerticle
             }
             else
             {
-                portCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS));
+                portCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS, OffsetDateTime.now(ZoneId.of("Asia/Kolkata"))));
             }
         }
 
@@ -338,12 +326,12 @@ public class Discovery extends AbstractVerticle
                         .getInteger(Fields.Credential.ID);
 
                 credentialCheckSuccessIps.add(
-                        Tuple.of(id, credential, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.COMPLETED_STATUS));
+                        Tuple.of(id, credential, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.COMPLETED_STATUS, result.getString(Fields.DiscoveryResult.TIME)));
             }
             else
             {
                 credentialCheckFailedIps.add(
-                        Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS));
+                        Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS, result.getString(Fields.DiscoveryResult.TIME)));
             }
         }
 

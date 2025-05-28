@@ -8,13 +8,11 @@ public class Config
 
     public static final String JWT_SECRET = "secret";
 
-    public static final String PLUGIN_PATH = "src/main/plugin/nms-plugin-cont";
+    public static final String PLUGIN_PATH = "src/main/plugin/nms-plugin-v2";
 
     public static final Integer HTTP_PORT = 8080;
 
     public static final Integer MAX_WORKER_EXECUTE_TIME = 1500;
-
-    public static final String INDIA_ZONE_NAME = "Asia/Kolkata";
 
     public static final long MAX_IP_COUNT = 1024;
 

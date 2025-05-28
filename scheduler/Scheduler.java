@@ -16,8 +16,6 @@ import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,7 +34,7 @@ public class Scheduler extends AbstractVerticle
             if (populateCacheResult.succeeded())
             {
                 // Start scheduler
-                timerId = App.VERTX.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> pollTimedOutGroups());
+                timerId = App.VERTX.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> poll());
 
                 LOGGER.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
 
@@ -57,13 +55,13 @@ public class Scheduler extends AbstractVerticle
         LOGGER.debug("⚠ Scheduler stopped");
     }
 
-    private void pollTimedOutGroups()
+    private void poll()
     {
         var timedOutGroups = MonitorCache.getInstance().collect(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
         {
-            var request = buildPollingRequest(timedOutGroups);
+            var request = buildRequest(timedOutGroups);
 
             var POLLING_TIMEOUT = Config.BASE_TIME + ( timedOutGroups.size() * Config.POLLING_TIMEOUT_PER_METRIC_GROUP );
 
@@ -80,7 +78,7 @@ public class Scheduler extends AbstractVerticle
 
                             if (!response.isEmpty())
                             {
-                                savePollingResults(response);
+                                saveResults(response);
                             }
                         }
                         else
@@ -92,7 +90,7 @@ public class Scheduler extends AbstractVerticle
         }
     }
 
-    private JsonObject buildPollingRequest(List<JsonObject> timedOutGroups)
+    private JsonObject buildRequest(List<JsonObject> timedOutGroups)
     {
         var metricGroups = new JsonArray();
 
@@ -120,7 +118,7 @@ public class Scheduler extends AbstractVerticle
                 .put(Fields.PluginPollingRequest.METRIC_GROUPS, metricGroups);
     }
 
-    private void savePollingResults(JsonArray results)
+    private void saveResults(JsonArray results)
     {
         var insertValuesBatch = new ArrayList<Tuple>();
 
@@ -133,8 +131,6 @@ public class Scheduler extends AbstractVerticle
                 continue;
             }
 
-            result.put(Fields.PollingResult.TIME, ZonedDateTime.now(ZoneId.of(Config.INDIA_ZONE_NAME)).toString());
-
             // Polled data as string
             var polledData = result.getString(Fields.PluginPollingResponse.DATA);
 
@@ -146,7 +142,9 @@ public class Scheduler extends AbstractVerticle
 
                         result.getString(Fields.PluginPollingResponse.NAME),
 
-                        new JsonObject(polledData)
+                        new JsonObject(polledData),
+
+                        result.getString(Fields.PluginPollingResponse.TIME)
                 ));
             }
             // Or Polled data is parsable as JsonArray
@@ -157,7 +155,9 @@ public class Scheduler extends AbstractVerticle
 
                         result.getString(Fields.PluginPollingResponse.NAME),
 
-                        new JsonArray(polledData)
+                        new JsonArray(polledData),
+
+                        result.getString(Fields.PluginPollingResponse.TIME)
                 ));
             }
             // Otherwise keep it as string
@@ -168,7 +168,9 @@ public class Scheduler extends AbstractVerticle
 
                         result.getString(Fields.PluginPollingResponse.NAME),
 
-                        polledData
+                        polledData,
+
+                        result.getString(Fields.PluginPollingResponse.TIME)
                 ));
             }
         }
