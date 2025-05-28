@@ -33,7 +33,6 @@ public class Scheduler extends AbstractVerticle
         {
             if (populateCacheResult.succeeded())
             {
-                // Start scheduler
                 timerId = App.VERTX.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> poll());
 
                 LOGGER.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
@@ -67,9 +66,13 @@ public class Scheduler extends AbstractVerticle
 
             // Send payload to plugin
             vertx.eventBus().<JsonArray>request(
+
                     Fields.EventBus.PLUGIN_SPAWN_ADDRESS,
+
                     request,
+
                     new DeliveryOptions().setSendTimeout(POLLING_TIMEOUT * 1000L),
+
                     pluginResponse ->
                     {
                         if (pluginResponse.succeeded())

@@ -125,6 +125,7 @@ public class Plugin extends AbstractVerticle
 
             return Config.BASE_TIME + (ipsCount * Config.DISCOVERY_TIMEOUT_PER_IP);
         }
+
         // Calculate timeout for polling
         else if ("polling".equals(type))
         {

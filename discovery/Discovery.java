@@ -6,8 +6,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import static org.nms.App.LOGGER;
-
 import io.vertx.core.net.NetClientOptions;
 import io.vertx.sqlclient.Tuple;
 import org.nms.App;
@@ -24,8 +22,8 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
+import static org.nms.App.LOGGER;
 import static org.nms.constants.Fields.Discovery.*;
-import static org.nms.constants.Fields.Discovery.SUCCESS;
 import static org.nms.constants.Fields.DiscoveryResult.MESSAGE;
 
 public class Discovery extends AbstractVerticle
@@ -36,385 +34,255 @@ public class Discovery extends AbstractVerticle
     {
         vertx.eventBus().<JsonObject>localConsumer(Fields.EventBus.RUN_DISCOVERY_ADDRESS, message ->
         {
-            var body =  message.body();
+            int id = message.body().getInteger(ID);
 
-            var id = body.getInteger(Fields.Discovery.ID);
+            runDiscoveryProcess(id).onFailure(err ->
+                    LOGGER.error("Discovery failed for id " + id + ": " + err.getMessage()));
 
-            runDiscoveryProcess(id)
-                    .onComplete(asyncResult ->
-                    {
-                        if (asyncResult.failed())
-                        {
-                            LOGGER.error("Error running discovery id " + id + ": " + asyncResult.cause().getMessage());
-                        }
-                    });
         });
 
-        LOGGER.debug("✅ Discovery Verticle Deployed, on thread [ " + Thread.currentThread().getName() + " ] ");
+        LOGGER.debug("✅ Discovery Verticle Deployed on thread [" + Thread.currentThread().getName() + "]");
     }
 
     @Override
     public void stop()
     {
-        LOGGER.info("\uD83D\uDED1 Discovery Verticle Stopped");
+        LOGGER.info("🛑 Discovery Verticle Stopped");
     }
 
     private Future<Void> runDiscoveryProcess(int id)
     {
-        var promise = Promise.promise();
+        return fetchDiscoveryDetails(id)
 
-        // Step 1: Fetch discovery details
-        fetchDiscoveryDetails(id)
                 .compose(discovery ->
+
+                         updateDiscoveryStatus(id, RUNNING_STATUS)
+
+                        .compose(v -> DbUtils.sendQueryExecutionRequest(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id)))
+
+                        .compose(v -> executeDiscovery(id, discovery)))
+
+                .compose(v -> updateDiscoveryStatus(id, COMPLETED_STATUS))
+
+                .recover(err ->
                 {
-                    // Step 2: Update discovery status to RUNNING
-                    return updateDiscoveryStatus(id, RUNNING_STATUS)
+                    LOGGER.warn("Discovery failed: " + err.getMessage());
 
-                            .compose(statusUpdationResult ->
-                            {
-                                // Step 3: Delete existing results
-                                return DbUtils.sendQueryExecutionRequest (
-                                        Queries.Discovery.DELETE_RESULT,
-                                        new JsonArray().add(id)
-                                );
-
-                            })
-
-                            .compose(v ->
-                            {
-                                // Step 4: Perform discovery process
-                                var ipStr = discovery.getString(Fields.Discovery.IP);
-
-                                var ipType = discovery.getString(Fields.Discovery.IP_TYPE);
-
-                                var port = discovery.getInteger(Fields.Discovery.PORT);
-
-                                var credentials = discovery.getJsonArray(Fields.Discovery.CREDENTIAL_JSON);
-
-                                var ips = getIpsFromString(ipStr, ipType);
-
-                                return executeDiscoverySteps(id, ips, port, credentials);
-                            });
-                })
-
-                .compose(discoveryRunResult ->
-                {
-                    // Step 5: Update discovery status to COMPLETED
-                    return updateDiscoveryStatus(id, Fields.Discovery.COMPLETED_STATUS);
-                })
-
-                .onComplete(statusUpdationStatus ->
-                {
-                    if (statusUpdationStatus.succeeded())
-                    {
-                        promise.complete();
-                    }
-                    else
-                    {
-                        LOGGER.warn("Discovery Failed, cause: " + statusUpdationStatus.cause().getMessage() );
-                    }
+                    return Future.failedFuture(err);
                 });
-
-        return Future.succeededFuture();
     }
 
-    private Future<JsonArray> sendDiscoveryRequestToPlugin(JsonObject request)
+    private Future<Void> executeDiscovery(int id, JsonObject discovery)
     {
-        Promise<JsonArray> promise = Promise.promise();
+        var ips = getIpsFromString(discovery.getString(IP), discovery.getString(IP_TYPE));
 
-        vertx.eventBus().<JsonArray>request(Fields.EventBus.PLUGIN_SPAWN_ADDRESS, request, reply ->
-        {
-            if (reply.succeeded())
-            {
-                var response = reply.result().body();
+        var port = discovery.getInteger(PORT);
 
-                promise.complete(response);
-            }
-            else
-            {
-                LOGGER.error("Error calling plugin: " + reply.cause().getMessage());
+        var credentials = discovery.getJsonArray(CREDENTIAL_JSON);
 
-                promise.complete(new JsonArray());
-            }
-        });
+        return pingIps(ips)
 
-        return promise.future();
+                .compose(results -> insertResults(id, results, false))
+
+                .compose(passedIps -> checkPorts(passedIps, port))
+
+                .compose(results -> insertResults(id, results, false))
+
+                .compose(passedIps -> passedIps.isEmpty() ?
+                        Future.succeededFuture() :
+                        sendDiscoveryRequest(id, passedIps, port, credentials)
+                                .compose(results -> processCredentialResults(id, results)));
+    }
+
+    private Future<JsonArray> sendDiscoveryRequest(int id, JsonArray ips, int port, JsonArray credentials)
+    {
+        var request = new JsonObject()
+                .put(Fields.PluginDiscoveryRequest.TYPE, Fields.PluginDiscoveryRequest.DISCOVERY)
+                .put(Fields.PluginDiscoveryRequest.ID, id)
+                .put(Fields.PluginDiscoveryRequest.IPS, ips)
+                .put(Fields.PluginDiscoveryRequest.PORT, port)
+                .put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
+
+        return vertx.eventBus().<JsonArray>request(Fields.EventBus.PLUGIN_SPAWN_ADDRESS, request)
+
+                .map(reply -> reply.body())
+
+                .recover(err ->
+                {
+                    LOGGER.error("Plugin error: " + err.getMessage());
+
+                    return Future.succeededFuture(new JsonArray());
+                });
     }
 
     private Future<JsonObject> fetchDiscoveryDetails(int id)
     {
-        Promise<JsonObject> promise = Promise.promise();
+        return DbUtils.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
 
-        DbUtils.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
-                .onComplete(asyncResult ->
-                {
-                    if (asyncResult.succeeded())
-                    {
-                        var discoveryArray = asyncResult.result();
+                .compose(results -> results.isEmpty() ?
 
-                        if (discoveryArray.isEmpty())
-                        {
-                            promise.fail("Discovery not found");
-                        }
-                        else
-                        {
-                            promise.complete(discoveryArray.getJsonObject(0));
-                        }
-                    }
-                    else
-                    {
-                        promise.fail(asyncResult.cause());
-                    }
-                });
+                        Future.failedFuture("Discovery not found") :
 
-        return promise.future();
+                        Future.succeededFuture(results.getJsonObject(0)));
     }
 
     private Future<Void> updateDiscoveryStatus(int id, String status)
     {
-        return DbUtils.sendQueryExecutionRequest(
-
-                Queries.Discovery.UPDATE_STATUS,
-
-                new JsonArray().add(id).add(status)
-
-        ).mapEmpty();
+        return DbUtils.sendQueryExecutionRequest(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add(status))
+                .mapEmpty();
     }
 
-    private Future<JsonArray> insertPingResults(int id, JsonArray pingResults)
+    private Future<JsonArray> insertResults(int id, JsonArray results, boolean isCredentialCheck)
     {
-        var pingCheckPassedIps = new JsonArray();
-        var pingCheckFailedIps = new ArrayList<Tuple>();
+        var passedIps = new JsonArray();
 
-        for (var i = 0; i < pingResults.size(); i++)
+        var failedTuples = new ArrayList<Tuple>();
+
+        results.forEach(item ->
         {
-            var result = pingResults.getJsonObject(i);
-            var success = result.getBoolean(Fields.Discovery.SUCCESS);
-            var ip = result.getString(Fields.Discovery.IP);
+            var result = (JsonObject) item;
+
+            var success = result.getBoolean(SUCCESS);
+
+            var ip = result.getString(IP);
 
             if (success)
             {
-                pingCheckPassedIps.add(ip);
+                passedIps.add(ip);
             }
             else
             {
-                pingCheckFailedIps.add(Tuple.of(
-                        id,
-                        null,
-                        ip,
-                        result.getString(Fields.DiscoveryResult.MESSAGE),
-                        Fields.Discovery.FAILED_STATUS, // Fixed field reference
-                        OffsetDateTime.now(ZoneId.of("Asia/Kolkata")).toString()
-                ));
+                var credentialId = isCredentialCheck && result.containsKey(Fields.PluginDiscoveryResponse.CREDENTIALS) ?
+
+                        result.getJsonObject(Fields.PluginDiscoveryResponse.CREDENTIALS).getInteger(Fields.Credential.ID) : null;
+
+                failedTuples.add(
+                        Tuple.of(
+                                id,
+                                credentialId,
+                                ip,
+                                result.getString(MESSAGE),
+                                 FAILED_STATUS,
+                                OffsetDateTime.now(ZoneId.of("Asia/Kolkata")).toString()
+                        )
+                );
             }
-        }
+        });
 
-        // Wait for database insertion to complete
-        Future<JsonArray> insertFuture = pingCheckFailedIps.isEmpty()
-                ? Future.succeededFuture(new JsonArray())
-                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, pingCheckFailedIps);
+        return failedTuples.isEmpty() ?
 
-        return insertFuture.map(v -> pingCheckPassedIps);
+                Future.succeededFuture(passedIps) :
+
+                DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, failedTuples)
+
+                        .map(v -> passedIps);
     }
 
-    private Future<JsonArray> insertPortCheckResults(int id, JsonArray portCheckResults)
+    private Future<Void> processCredentialResults(int id, JsonArray results)
     {
-        var portCheckPassedIps = new JsonArray();
-        var portCheckFailedIps = new ArrayList<Tuple>();
+        var successTuples = new ArrayList<Tuple>();
 
-        for (int i = 0; i < portCheckResults.size(); i++)
+        var failedTuples = new ArrayList<Tuple>();
+
+        results.forEach(item ->
         {
-            var result = portCheckResults.getJsonObject(i);
-            var success = result.getBoolean(Fields.Discovery.SUCCESS);
-            var ip = result.getString(Fields.Discovery.IP);
-
-            if (success)
-            {
-                portCheckPassedIps.add(ip);
-            }
-            else
-            {
-                portCheckFailedIps.add(Tuple.of(
-                        id,
-                        null,
-                        ip,
-                        result.getString(Fields.DiscoveryResult.MESSAGE),
-                        Fields.Discovery.FAILED_STATUS, // Fixed field reference
-                        OffsetDateTime.now(ZoneId.of("Asia/Kolkata")).toString()
-                ));
-            }
-        }
-
-        // Wait for database insertion to complete
-        Future<JsonArray> insertFuture = portCheckFailedIps.isEmpty()
-
-                ? Future.succeededFuture(new JsonArray())
-
-                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, portCheckFailedIps);
-
-        return insertFuture.map(v -> portCheckPassedIps);
-    }
-
-    // Updated executeDiscoverySteps method to handle the new Future return types
-    private Future<Void> executeDiscoverySteps(int id, JsonArray ips, int port, JsonArray credentials)
-    {
-        Promise<Void> promise = Promise.promise();
-
-        // Step 1: Ping Check
-        pingIps(ips)
-                .compose(pingResults -> insertPingResults(id, pingResults))
-                .compose(pingPassedIps ->
-                {
-                    // Step 2: Port Check
-                    return checkPorts(pingPassedIps, port)
-                            .compose(portResults -> insertPortCheckResults(id, portResults))
-                            .compose(portPassedIps ->
-                            {
-                                // Step 3: Credentials Check
-                                if (portPassedIps.isEmpty())
-                                {
-                                    LOGGER.info("No IPs passed port check for discovery with id " + id);
-
-                                    return Future.succeededFuture();
-                                }
-
-                                var discoveryRequest = new JsonObject()
-                                        .put(Fields.PluginDiscoveryRequest.TYPE, Fields.PluginDiscoveryRequest.DISCOVERY)
-                                        .put(Fields.PluginDiscoveryRequest.ID, id)
-                                        .put(Fields.PluginDiscoveryRequest.IPS, portPassedIps)
-                                        .put(Fields.PluginDiscoveryRequest.PORT, port)
-                                        .put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
-
-                                return sendDiscoveryRequestToPlugin(discoveryRequest)
-                                        .compose(asyncResult -> processCredentialCheckResults(id, asyncResult));
-                            });
-                })
-                .onComplete(asyncResult ->
-                {
-                    if (asyncResult.succeeded())
-                    {
-                        promise.complete();
-                    }
-                    else
-                    {
-                        promise.fail(asyncResult.cause());
-                    }
-                });
-
-        return promise.future();
-    }
-
-    private Future<Void> processCredentialCheckResults(int id, JsonArray credentialCheckResults)
-    {
-        var credentialCheckFailedIps = new ArrayList<Tuple>();
-
-        var credentialCheckSuccessIps = new ArrayList<Tuple>();
-
-        for (int i = 0; i < credentialCheckResults.size(); i++)
-        {
-            var result = credentialCheckResults.getJsonObject(i);
-
-            var success = result.getBoolean(Fields.Discovery.SUCCESS);
-
+            var result = (JsonObject) item;
+            var success = result.getBoolean(SUCCESS);
             var ip = result.getString(Fields.PluginDiscoveryResponse.IP);
+            var message = result.getString(MESSAGE);
+            var time = result.getString(Fields.DiscoveryResult.TIME);
 
             if (success)
             {
-                var credential = result.getJsonObject(Fields.PluginDiscoveryResponse.CREDENTIALS)
+                var credentialId = result.getJsonObject(Fields.PluginDiscoveryResponse.CREDENTIALS)
                         .getInteger(Fields.Credential.ID);
-
-                credentialCheckSuccessIps.add(
-                        Tuple.of(id, credential, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.COMPLETED_STATUS, result.getString(Fields.DiscoveryResult.TIME)));
-            }
-            else
+                successTuples.add(Tuple.of(id, credentialId, ip, message,
+                        Fields.DiscoveryResult.COMPLETED_STATUS, time));
+            } else
             {
-                credentialCheckFailedIps.add(
-                        Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS, result.getString(Fields.DiscoveryResult.TIME)));
+                failedTuples.add(Tuple.of(id, null, ip, message,
+                        Fields.DiscoveryResult.FAILED_STATUS, time));
             }
+        });
+
+        var futures = new ArrayList<Future<JsonArray>>();
+
+        if (!failedTuples.isEmpty())
+        {
+            futures.add(DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, failedTuples));
         }
 
-        // Batch insert results, handling empty lists to avoid batch query errors
-        Future<JsonArray> failureIps = credentialCheckFailedIps.isEmpty()
-                ? Future.succeededFuture(new JsonArray())
-                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckFailedIps);
+        if (!successTuples.isEmpty())
+        {
+            futures.add(DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, successTuples));
+        }
 
-        Future<JsonArray> successIps = credentialCheckSuccessIps.isEmpty()
-                ? Future.succeededFuture(new JsonArray())
-                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, credentialCheckSuccessIps);
-
-        return Future.join(failureIps, successIps)
-                .compose(v -> Future.succeededFuture());
+        return futures.isEmpty() ? Future.succeededFuture() :
+                Future.join(futures).mapEmpty();
     }
 
     private JsonArray getIpsFromString(String ip, String ipType)
     {
         var ips = new JsonArray();
 
-        if (Validators.validateIpWithIpType(ip, ipType))
-        {
-            return ips;
-        }
+        if (Validators.validateIpWithIpType(ip, ipType)) return ips;
 
         try
         {
-            if ("RANGE".equalsIgnoreCase(ipType))
+            switch (ipType.toUpperCase())
             {
-                var parts = ip.split("-");
+                case "RANGE":
 
-                var startIp = new IPAddressString(parts[0].trim()).getAddress();
+                    var parts = ip.split("-");
 
-                var endIp = new IPAddressString(parts[1].trim()).getAddress();
+                    var startIp = new IPAddressString(parts[0].trim()).getAddress();
 
-                var address = startIp.toSequentialRange(endIp);
+                    var endIp = new IPAddressString(parts[1].trim()).getAddress();
 
-                address.getIterable().forEach(ipAddress -> ips.add(ipAddress.toString()));
+                    startIp.toSequentialRange(endIp).getIterable()
+                            .forEach(addr -> ips.add(addr.toString()));
+
+                    break;
+
+                case "CIDR":
+
+                    new IPAddressString(ip).getSequentialRange().getIterable()
+                            .forEach(addr -> ips.add(addr.toString()));
+
+                    break;
+
+                case "SINGLE":
+
+                    ips.add(new IPAddressString(ip).getAddress().toString());
+
+                    break;
             }
-            else if ("CIDR".equalsIgnoreCase(ipType))
-            {
-                new IPAddressString(ip)
-                        .getSequentialRange()
-                        .getIterable()
-                        .forEach(ipAddress -> ips.add(ipAddress.toString()));
-            }
-            else if ("SINGLE".equalsIgnoreCase(ipType))
-            {
-                var singleAddr = new IPAddressString(ip).getAddress();
-
-                ips.add(singleAddr.toString());
-            }
-
-            return ips;
         }
-        catch (Exception exception)
+        catch (Exception e)
         {
-            LOGGER.error("Failed to convert ip string to JsonArray of ip, error: " + exception.getMessage() );
-
-            return new JsonArray();
+            LOGGER.error("IP conversion failed: " + e.getMessage());
         }
+
+        return ips;
     }
 
     private Future<JsonArray> pingIps(JsonArray ips)
     {
-        // Early validation - outside executeBlocking
-        if (ips == null || ips.isEmpty())
-        {
-            return Future.succeededFuture(new JsonArray());
-        }
+        if (ips == null || ips.isEmpty()) return Future.succeededFuture(new JsonArray());
 
-        LOGGER.debug("ping check request for ips: " + ips.encode());
-
-        // Prepare fping command - outside executeBlocking
         var command = new String[ips.size() + 3];
+
         command[0] = "fping";
+
         command[1] = "-c1";
+
         command[2] = "-q";
 
-        for (var i = 0; i < ips.size(); i++)
+        for (int i = 0; i < ips.size(); i++)
         {
             command[i + 3] = ips.getString(i);
         }
 
-        // execute the blocking ping operation within executeBlocking
         return App.VERTX.executeBlocking(promise ->
         {
             var results = new JsonArray();
@@ -425,38 +293,31 @@ public class Discovery extends AbstractVerticle
 
             try
             {
-                var processBuilder = new ProcessBuilder(command);
+                process = new ProcessBuilder(command).redirectErrorStream(true).start();
 
-                processBuilder.redirectErrorStream(true);
-
-                process = processBuilder.start();
-
-                // Process timeout
-                var completed = process.waitFor(Config.BASE_TIME + ((long) Config.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
+                boolean completed = process.waitFor(Config.BASE_TIME +
+                        ((long) Config.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
 
                 if (!completed)
                 {
                     process.destroyForcibly();
 
-                    promise.complete(createErrorResultForAll(ips, "Ping process timed out"));
+                    promise.complete(createErrorResults(ips, "Ping timeout"));
 
                     return;
                 }
 
                 reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-                String line;
-
                 var processedIps = new JsonArray();
+
+                String line;
 
                 while ((line = reader.readLine()) != null)
                 {
                     var parts = line.split(":");
 
-                    if (parts.length < 2)
-                    {
-                        continue;
-                    }
+                    if (parts.length < 2) continue;
 
                     var ip = parts[0].trim();
 
@@ -464,54 +325,48 @@ public class Discovery extends AbstractVerticle
 
                     processedIps.add(ip);
 
-                    var isSuccess = !stats.contains("100%");
+                    boolean isSuccess = !stats.contains("100%");
 
-                    var result = new JsonObject()
+                    results.add(new JsonObject()
                             .put(SUCCESS, isSuccess)
                             .put(IP, ip)
-                            .put(MESSAGE,
-                                    isSuccess
-                                            ? "Ping check success"
-                                            : "Ping check failed: 100% packet loss");
-
-                    results.add(result);
+                            .put(MESSAGE, isSuccess ? "Ping success" : "Ping failed: 100% packet loss"));
                 }
 
-                // Handle unprocessed IPs
-                for (var i = 0; i < ips.size(); i++)
+                // Add unprocessed IPs as failures
+                ips.forEach(ip ->
                 {
-                    var ip = ips.getString(i);
-
                     if (!processedIps.contains(ip))
                     {
-                        results.add(createErrorResult(ip, "No response from fping"));
+                        results.add(new JsonObject().put(IP, ip.toString()).put(SUCCESS, false).put(MESSAGE, "No fping result"));
                     }
-                }
-
-                LOGGER.debug("ping check passed ips: " + results.encode());
+                });
 
                 promise.complete(results);
             }
-            catch (Exception exception)
+            catch (Exception e)
             {
-                LOGGER.error("Error during ping check: " + exception.getMessage());
+                LOGGER.error("Ping error: " + e.getMessage());
 
-                promise.complete(createErrorResultForAll(ips, "Error during ping check"));
+                promise.complete(createErrorResults(ips, "Ping error"));
             }
             finally
             {
-                closeQuietly(reader);
-
-                if (process != null && process.isAlive())
+                if (reader != null)
                 {
                     try
                     {
-                        process.destroyForcibly();
+                        reader.close();
                     }
-                    catch (Exception exception)
+                    catch (Exception e)
                     {
-                        LOGGER.error("Error destroying ping process: " + exception.getMessage());
+                        LOGGER.error("Resource close error: " + e.getMessage());
                     }
+                }
+
+                if (process != null && process.isAlive())
+                {
+                    process.destroyForcibly();
                 }
             }
         });
@@ -519,145 +374,66 @@ public class Discovery extends AbstractVerticle
 
     private Future<JsonArray> checkPorts(JsonArray ips, int port)
     {
-        var promise = Promise.<JsonArray>promise();
+        if (ips == null || ips.isEmpty() || port < 1 || port > 65535)
+        {
+            return Future.succeededFuture(new JsonArray());
+        }
 
         var results = new JsonArray();
 
         var futures = new ArrayList<Future<JsonObject>>();
 
-        if (ips == null || ips.isEmpty() || port < 1 || port > 65535)
+        ips.forEach(ip ->
         {
-            promise.complete(results);
+            var promise = Promise.<JsonObject>promise();
 
-            return promise.future();
-        }
+            futures.add(promise.future());
 
-        LOGGER.debug("port check request for ips: " + ips.encode());
+            var result = new JsonObject().put(IP, ip.toString()).put(PORT, port);
 
-        for (var ip : ips)
-        {
-            var checkPortPromise = Promise.<JsonObject>promise();
-
-            futures.add(checkPortPromise.future());
-
-            var result = new JsonObject()
-                    .put(IP, ip.toString())
-                    .put(PORT, port);
-
-            try
-            {
-                App.VERTX.createNetClient(new NetClientOptions().setConnectTimeout(Config.PORT_TIMEOUT * 1000))
-                        .connect(port, ip.toString(), asyncResult ->
+            App.VERTX.createNetClient(new NetClientOptions().setConnectTimeout(Config.PORT_TIMEOUT * 1000))
+                    .connect(port, ip.toString(), ar ->
+                    {
+                        if (ar.succeeded())
                         {
-                            try
-                            {
-                                if (asyncResult.succeeded())
-                                {
-                                    var socket = asyncResult.result();
+                            ar.result().close();
 
-                                    result.put(SUCCESS, true)
-                                            .put(MESSAGE, "Port " + port + " is open on " + ip);
+                            result.put(SUCCESS, true).put(MESSAGE, "Port " + port + " open on " + ip);
 
-                                    socket.close();
-                                }
-                                else
-                                {
-                                    var cause = asyncResult.cause();
+                        }
+                        else
+                        {
+                            var error = ar.cause().getMessage();
 
-                                    var errorMessage = cause != null ? cause.getMessage() : "Unknown error";
+                            result.put(SUCCESS, false).put(MESSAGE,
+                                    error.contains("Connection refused") ?
+                                            "Port " + port + " closed on " + ip : error);
+                        }
 
-                                    result.put(SUCCESS, false)
-                                            .put(MESSAGE,
-                                                    errorMessage.contains("Connection refused")
-                                                            ? "Port " + port + " is closed on " + ip
-                                                            : errorMessage);
-                                }
-                            }
-                            catch (Exception exception)
-                            {
-                                result
-                                        .put(SUCCESS, false)
-                                        .put(MESSAGE, "Something went wrong");
+                        results.add(result);
 
-                                LOGGER.error("Something went wrong, error: " + exception.getMessage());
-                            }
-                            finally
-                            {
-                                results.add(result);
+                        promise.complete(result);
+                    });
+        });
 
-                                checkPortPromise.complete(result);
-                            }
-                        });
-            }
-            catch (Exception exception)
-            {
-                result
-                        .put(SUCCESS, false)
-                        .put(MESSAGE, "Error creating connection: " + exception.getMessage());
-                results
-                        .add(result);
-
-                checkPortPromise.complete(result);
-            }
-        }
-
-        Future.all(futures)
-                .onComplete(asyncResult ->
-                {
-                    if (asyncResult.succeeded())
-                    {
-                        LOGGER.debug("Port check passed ips: " + results.encode());
-
-                        promise.complete(results);
-                    }
-                    else
-                    {
-                        LOGGER.error("Error in port check: " + asyncResult.cause().getMessage());
-
-                        promise.complete(results);
-                    }
-                });
-
-        return promise.future();
+        return Future.all(futures).map(v -> results);
     }
 
-    private JsonObject createErrorResult(String ip, String message)
-    {
-        return new JsonObject()
-                .put(Fields.Discovery.IP, ip)
-                .put(Fields.Discovery.SUCCESS, false)
-                .put(Fields.DiscoveryResult.MESSAGE, message);
-    }
-
-    private JsonArray createErrorResultForAll(JsonArray ipArray, String message)
+    private JsonArray createErrorResults(JsonArray ips, String message)
     {
         var results = new JsonArray();
 
-        if (ipArray != null)
+        if (ips != null)
         {
-            for (var i = 0; i < ipArray.size(); i++)
-            {
-                var ip = String.valueOf(ipArray.getValue(i));
-
-                results.add(createErrorResult(ip, message));
-            }
+            ips.forEach(ip -> results.add(
+                    new JsonObject()
+                            .put(IP, ip.toString())
+                            .put(SUCCESS, false)
+                            .put(MESSAGE, message)
+            ));
         }
+
         return results;
-    }
-
-    private void closeQuietly(AutoCloseable closeable)
-    {
-        if (closeable != null)
-        {
-            try
-            {
-                closeable.close();
-            }
-            catch (Exception exception)
-            {
-                LOGGER.error("Error closing resource: " + exception.getMessage());
-            }
-        }
     }
 
 }
