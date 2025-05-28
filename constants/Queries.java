@@ -250,7 +250,7 @@ public class Queries
                 ip,
                 ip_type,
                 status,
-                port,
+                port
             ) VALUES ($1, $2, $3, 'PENDING', $4)
             RETURNING *;
             """;

@@ -118,65 +118,6 @@ public class Discovery extends AbstractVerticle
         return Future.succeededFuture();
     }
 
-    private Future<Void> executeDiscoverySteps(int id, JsonArray ips, int port, JsonArray credentials)
-    {
-        Promise<Void> promise = Promise.promise();
-
-        // Step 1: Ping Check - directly call without event bus
-        pingIps(ips)
-                .compose(pingResults ->
-                {
-                    var pingPassedIps = insertPingResults(id, pingResults);
-
-                    // Step 2: Port Check - directly call without event bus
-                    return checkPorts(pingPassedIps, port)
-
-                            .compose(portResults ->
-                            {
-                                var portPassedIps = insertPortCheckResults(id, portResults);
-
-                                // Step 3: Credentials Check - only for IPs that passed port check
-                                if (portPassedIps.isEmpty())
-                                {
-                                    LOGGER.info("No IPs passed port check for discovery with id " + id);
-
-                                    return Future.succeededFuture();
-                                }
-
-                                // Prepare plugin discovery request
-                                var discoveryRequest = new JsonObject()
-                                        .put(Fields.PluginDiscoveryRequest.TYPE, Fields.PluginDiscoveryRequest.DISCOVERY)
-
-                                        .put(Fields.PluginDiscoveryRequest.ID, id)
-
-                                        .put(Fields.PluginDiscoveryRequest.IPS, portPassedIps)
-
-                                        .put(Fields.PluginDiscoveryRequest.PORT, port)
-
-                                        .put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
-
-
-                                // Send discovery request to plugin via event bus
-                                return sendDiscoveryRequestToPlugin(discoveryRequest)
-                                        .compose(asyncResult -> processCredentialCheckResults(id, asyncResult));
-                            });
-                })
-
-                .onComplete(asyncResult ->
-                {
-                    if (asyncResult.succeeded())
-                    {
-                        promise.complete();
-                    }
-                    else
-                    {
-                        promise.fail(asyncResult.cause());
-                    }
-                });
-
-        return promise.future();
-    }
-
     private Future<JsonArray> sendDiscoveryRequestToPlugin(JsonObject request)
     {
         Promise<JsonArray> promise = Promise.promise();
@@ -240,18 +181,15 @@ public class Discovery extends AbstractVerticle
         ).mapEmpty();
     }
 
-    private JsonArray insertPingResults(int id, JsonArray pingResults)
+    private Future<JsonArray> insertPingResults(int id, JsonArray pingResults)
     {
         var pingCheckPassedIps = new JsonArray();
-
         var pingCheckFailedIps = new ArrayList<Tuple>();
 
         for (var i = 0; i < pingResults.size(); i++)
         {
             var result = pingResults.getJsonObject(i);
-
             var success = result.getBoolean(Fields.Discovery.SUCCESS);
-
             var ip = result.getString(Fields.Discovery.IP);
 
             if (success)
@@ -260,31 +198,34 @@ public class Discovery extends AbstractVerticle
             }
             else
             {
-                pingCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.Discovery.FAILED_STATUS, OffsetDateTime.now(ZoneId.of("Asia/Kolkata"))));
+                pingCheckFailedIps.add(Tuple.of(
+                        id,
+                        null,
+                        ip,
+                        result.getString(Fields.DiscoveryResult.MESSAGE),
+                        Fields.Discovery.FAILED_STATUS, // Fixed field reference
+                        OffsetDateTime.now(ZoneId.of("Asia/Kolkata")).toString()
+                ));
             }
         }
 
-        // Insert failed IPs if any
-        if (!pingCheckFailedIps.isEmpty())
-        {
-            DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, pingCheckFailedIps);
-        }
+        // Wait for database insertion to complete
+        Future<JsonArray> insertFuture = pingCheckFailedIps.isEmpty()
+                ? Future.succeededFuture(new JsonArray())
+                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, pingCheckFailedIps);
 
-        return pingCheckPassedIps;
+        return insertFuture.map(v -> pingCheckPassedIps);
     }
 
-    private JsonArray insertPortCheckResults(int id, JsonArray portCheckResults)
+    private Future<JsonArray> insertPortCheckResults(int id, JsonArray portCheckResults)
     {
         var portCheckPassedIps = new JsonArray();
-
         var portCheckFailedIps = new ArrayList<Tuple>();
 
         for (int i = 0; i < portCheckResults.size(); i++)
         {
             var result = portCheckResults.getJsonObject(i);
-
             var success = result.getBoolean(Fields.Discovery.SUCCESS);
-
             var ip = result.getString(Fields.Discovery.IP);
 
             if (success)
@@ -293,17 +234,74 @@ public class Discovery extends AbstractVerticle
             }
             else
             {
-                portCheckFailedIps.add(Tuple.of(id, null, ip, result.getString(Fields.DiscoveryResult.MESSAGE), Fields.DiscoveryResult.FAILED_STATUS, OffsetDateTime.now(ZoneId.of("Asia/Kolkata"))));
+                portCheckFailedIps.add(Tuple.of(
+                        id,
+                        null,
+                        ip,
+                        result.getString(Fields.DiscoveryResult.MESSAGE),
+                        Fields.Discovery.FAILED_STATUS, // Fixed field reference
+                        OffsetDateTime.now(ZoneId.of("Asia/Kolkata")).toString()
+                ));
             }
         }
 
-        // Insert failed IPs if any
-        if (!portCheckFailedIps.isEmpty())
-        {
-            DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, portCheckFailedIps);
-        }
+        // Wait for database insertion to complete
+        Future<JsonArray> insertFuture = portCheckFailedIps.isEmpty()
 
-        return portCheckPassedIps;
+                ? Future.succeededFuture(new JsonArray())
+
+                : DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, portCheckFailedIps);
+
+        return insertFuture.map(v -> portCheckPassedIps);
+    }
+
+    // Updated executeDiscoverySteps method to handle the new Future return types
+    private Future<Void> executeDiscoverySteps(int id, JsonArray ips, int port, JsonArray credentials)
+    {
+        Promise<Void> promise = Promise.promise();
+
+        // Step 1: Ping Check
+        pingIps(ips)
+                .compose(pingResults -> insertPingResults(id, pingResults))
+                .compose(pingPassedIps ->
+                {
+                    // Step 2: Port Check
+                    return checkPorts(pingPassedIps, port)
+                            .compose(portResults -> insertPortCheckResults(id, portResults))
+                            .compose(portPassedIps ->
+                            {
+                                // Step 3: Credentials Check
+                                if (portPassedIps.isEmpty())
+                                {
+                                    LOGGER.info("No IPs passed port check for discovery with id " + id);
+
+                                    return Future.succeededFuture();
+                                }
+
+                                var discoveryRequest = new JsonObject()
+                                        .put(Fields.PluginDiscoveryRequest.TYPE, Fields.PluginDiscoveryRequest.DISCOVERY)
+                                        .put(Fields.PluginDiscoveryRequest.ID, id)
+                                        .put(Fields.PluginDiscoveryRequest.IPS, portPassedIps)
+                                        .put(Fields.PluginDiscoveryRequest.PORT, port)
+                                        .put(Fields.PluginDiscoveryRequest.CREDENTIALS, credentials);
+
+                                return sendDiscoveryRequestToPlugin(discoveryRequest)
+                                        .compose(asyncResult -> processCredentialCheckResults(id, asyncResult));
+                            });
+                })
+                .onComplete(asyncResult ->
+                {
+                    if (asyncResult.succeeded())
+                    {
+                        promise.complete();
+                    }
+                    else
+                    {
+                        promise.fail(asyncResult.cause());
+                    }
+                });
+
+        return promise.future();
     }
 
     private Future<Void> processCredentialCheckResults(int id, JsonArray credentialCheckResults)

@@ -138,6 +138,7 @@ public class Scheduler extends AbstractVerticle
             if (isParsableAsJsonObject(polledData))
             {
                 insertValuesBatch.add(Tuple.of(
+
                         result.getInteger(Fields.PluginPollingResponse.MONITOR_ID),
 
                         result.getString(Fields.PluginPollingResponse.NAME),
@@ -147,10 +148,12 @@ public class Scheduler extends AbstractVerticle
                         result.getString(Fields.PluginPollingResponse.TIME)
                 ));
             }
+
             // Or Polled data is parsable as JsonArray
             else if (isParsableAsJsonArray(polledData))
             {
                 insertValuesBatch.add(Tuple.of(
+
                         result.getInteger(Fields.PluginPollingResponse.MONITOR_ID),
 
                         result.getString(Fields.PluginPollingResponse.NAME),
@@ -160,10 +163,12 @@ public class Scheduler extends AbstractVerticle
                         result.getString(Fields.PluginPollingResponse.TIME)
                 ));
             }
+
             // Otherwise keep it as string
             else
             {
                 insertValuesBatch.add(Tuple.of(
+
                         result.getInteger(Fields.PluginPollingResponse.MONITOR_ID),
 
                         result.getString(Fields.PluginPollingResponse.NAME),
