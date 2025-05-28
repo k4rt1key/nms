@@ -434,7 +434,7 @@ public class Discovery extends AbstractVerticle
                 process = processBuilder.start();
 
                 // Process timeout
-                var completed = process.waitFor(Config.BASE_TIME + (Config.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
+                var completed = process.waitFor(Config.BASE_TIME + ((long) Config.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
 
                 if (!completed)
                 {

@@ -11,8 +11,6 @@ import org.nms.constants.Fields;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class Plugin extends AbstractVerticle
 {
@@ -61,7 +59,7 @@ public class Plugin extends AbstractVerticle
                 // Run command
                 var process = builder.start();
 
-                long timerId = vertx.setTimer(timeout * 1000l, (tId)->
+                long timerId = vertx.setTimer(timeout * 1000L, (tId)->
                 {
                     if(process.isAlive())
                     {
