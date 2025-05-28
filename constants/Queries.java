@@ -251,8 +251,7 @@ public class Queries
                 ip_type,
                 status,
                 port,
-                time
-            ) VALUES ($1, $2, $3, 'PENDING', $4, $5)
+            ) VALUES ($1, $2, $3, 'PENDING', $4)
             RETURNING *;
             """;
 

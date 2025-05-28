@@ -94,8 +94,11 @@ public class Database extends AbstractVerticle
         var query = message.body();
 
         dbClient.preparedQuery(query)
+
                 .execute()
+
                 .map(this::toJsonArray)
+
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
@@ -118,8 +121,11 @@ public class Database extends AbstractVerticle
         var params = request.getJsonArray("params");
 
         dbClient.preparedQuery(query)
+
                 .execute(Tuple.wrap(params.getList().toArray()))
+
                 .map(this::toJsonArray)
+
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
@@ -151,8 +157,11 @@ public class Database extends AbstractVerticle
         }
 
         dbClient.preparedQuery(query)
+
                 .executeBatch(tuples)
+
                 .map(this::toJsonArray)
+
                 .onComplete(dbResult ->
                 {
                     if(dbResult.succeeded())
@@ -170,7 +179,8 @@ public class Database extends AbstractVerticle
     {
         var results = new JsonArray();
 
-        for (Row row : rows) {
+        for (Row row : rows)
+        {
             results.add(row.toJson());
         }
 

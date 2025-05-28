@@ -71,13 +71,21 @@ public class MonitorCache
                     var metricObject = monitorObject.getJsonArray(Fields.Monitor.METRIC_GROUP_JSON).getJsonObject(k);
 
                     var value = new JsonObject()
+
                             .put(Fields.MonitorCache.ID, metricObject.getInteger(Fields.MetricGroup.ID))
+
                             .put(Fields.MonitorCache.MONITOR_ID, monitorObject.getInteger(Fields.Monitor.ID))
+
                             .put(Fields.MonitorCache.IP, monitorObject.getString(Fields.Monitor.IP))
+
                             .put(Fields.MonitorCache.PORT, Integer.valueOf(monitorObject.getString(Fields.Monitor.PORT)))
+
                             .put(Fields.MonitorCache.CREDENTIAL, monitorObject.getJsonObject(Fields.Monitor.CREDENTIAL_JSON).copy())
+
                             .put(Fields.MonitorCache.NAME, metricObject.getString(Fields.MetricGroup.NAME))
+
                             .put(Fields.MonitorCache.POLLING_INTERVAL, metricObject.getInteger(Fields.MetricGroup.POLLING_INTERVAL))
+
                             .put(Fields.MonitorCache.IS_ENABLED, metricObject.getBoolean(Fields.MetricGroup.IS_ENABLED));
 
                     var key = metricObject.getInteger(Fields.MetricGroup.ID);
@@ -122,12 +130,15 @@ public class MonitorCache
                         && !metricGroup.getBoolean(Fields.MonitorCache.IS_ENABLED))
                 {
                     referencedMetricGroups.remove(key);
+
                     cachedMetricGroups.remove(key);
+
                     continue;
                 }
 
                 // Update both caches
                 referencedMetricGroups.put(key, updatedValue);
+
                 cachedMetricGroups.put(key, updatedValue);
             }
             catch (Exception exception)
