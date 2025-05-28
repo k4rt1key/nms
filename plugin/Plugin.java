@@ -61,19 +61,16 @@ public class Plugin extends AbstractVerticle
                 // Run command
                 var process = builder.start();
 
-                // Wait for response with timeout
-                var doneExecuting = process.waitFor(timeout, TimeUnit.SECONDS);
-
-                // If Timeout
-                if (!doneExecuting)
+                long timerId = vertx.setTimer(timeout * 1000l, (tId)->
                 {
-                    LOGGER.warn("⚠ Plugin is not responding within " + timeout + " seconds, process is being terminated !");
+                    if(process.isAlive())
+                    {
+                        LOGGER.info("Timeout for proccess " + process.pid() + ", terminating...");
 
-                    process.destroyForcibly();
+                        process.destroyForcibly();
+                    }
+                });
 
-                    // Send empty response
-                    return new JsonArray();
-                }
 
                 // Else Read output
                 var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
@@ -97,6 +94,11 @@ public class Plugin extends AbstractVerticle
                 }
 
                 reader.close();
+
+                if(!vertx.timer(timerId).isComplete())
+                {
+                    vertx.timer(timerId).cancel();
+                }
 
                 return response;
             }
