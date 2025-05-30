@@ -67,19 +67,19 @@ public class HttpServer extends AbstractVerticle
         server.requestHandler(router);
 
         // ===== Listen on Port =====
-        server.listen(Config.HTTP_PORT, http ->
+        server.listen(Config.HTTP_PORT, asyncResult ->
         {
-            if(http.succeeded())
+            if(asyncResult.succeeded())
             {
-                LOGGER.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }
             else
             {
-                LOGGER.error("Failed To Start HTTP Server => " + http.cause());
+                LOGGER.error("Failed To Start HTTP Server => " + asyncResult.cause());
 
-                startPromise.fail(http.cause());
+                startPromise.fail(asyncResult.cause());
             }
         });
     }
@@ -87,7 +87,7 @@ public class HttpServer extends AbstractVerticle
     @Override
     public void stop()
     {
-        LOGGER.info("\uD83D\uDED1 Http Server Stopped");
+        LOGGER.info("Http Server Stopped");
     }
 
     public static void authenticate(RoutingContext ctx)
@@ -95,6 +95,7 @@ public class HttpServer extends AbstractVerticle
         if(ctx.user() == null || ctx.user().principal().isEmpty() || ctx.user().expired())
         {
             sendFailure(ctx, 401, "Please login to continue");
+
             return;
         }
 

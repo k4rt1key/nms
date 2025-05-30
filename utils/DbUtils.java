@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 public class DbUtils
 {
-    public static Future<JsonArray> sendQueryExecutionRequest(String query, JsonArray params)
+    public static Future<JsonArray> execute(String query, JsonArray params)
     {
         var request = new JsonObject()
                 .put("query", query)
@@ -46,7 +46,7 @@ public class DbUtils
         }
     }
 
-    public static Future<JsonArray> sendQueryExecutionRequest(String query)
+    public static Future<JsonArray> execute(String query)
     {
         try
         {
@@ -71,7 +71,7 @@ public class DbUtils
         }
     }
 
-    public static Future<JsonArray> sendQueryExecutionRequest(String query, List<Tuple> params)
+    public static Future<JsonArray> execute(String query, List<Tuple> params)
     {
         // Convert List<Tuple> to JsonArray of JsonArrays for transmission over event bus
         var dbParams = new JsonArray();

@@ -13,11 +13,12 @@ import org.nms.constants.Fields;
 import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
-public class MonitorCache
+public class MonitorCache implements AbstractCache
 {
     private static MonitorCache instance;
 
-    private MonitorCache(){}
+    private MonitorCache()
+    {}
 
     public static MonitorCache getInstance()
     {
@@ -33,12 +34,12 @@ public class MonitorCache
 
     private final ConcurrentHashMap<Integer, JsonObject> referencedMetricGroups = new ConcurrentHashMap<>();
 
-    // Populate cache from database
     public Future<JsonArray> init()
     {
         try
         {
-            return DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL)
+            return DbUtils.execute(Queries.Monitor.GET_ALL)
+
                     .onComplete(monitorArrayResult ->
                     {
                         if(monitorArrayResult.succeeded())
@@ -57,7 +58,6 @@ public class MonitorCache
         }
     }
 
-    // Insert monitors into cache
     public void insert(JsonArray monitorArray)
     {
         for (var i = 0; i < monitorArray.size(); i++)
@@ -105,7 +105,6 @@ public class MonitorCache
         LOGGER.info("📬 Inserted " + monitorArray.size() + " monitors Into Cache, Total Entries: " + cachedMetricGroups.size());
     }
 
-    // Update metric groups in cache
     public void update(JsonArray metricGroups)
     {
         for (var i = 0; i < metricGroups.size(); i++)
@@ -150,7 +149,6 @@ public class MonitorCache
         LOGGER.info("➖ Updated " + metricGroups.size() + " Entries in Cache");
     }
 
-    // Delete metric groups for a specific monitor
     public void delete(Integer monitorId)
     {
         var removedCount = new ArrayList<Integer>();
@@ -171,7 +169,6 @@ public class MonitorCache
         LOGGER.info("➖ Removed " + removedCount.size() + " Entries from Cache");
     }
 
-    // Decrement intervals and collect timed-out metric groups
     public List<JsonObject> collect(int interval)
     {
         var timedOutMetricGroups = new ArrayList<JsonObject>();

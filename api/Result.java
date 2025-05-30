@@ -33,7 +33,7 @@ public class Result implements BaseHandler
 
     public void list(RoutingContext ctx)
     {
-        DbUtils.sendQueryExecutionRequest(Queries.PollingResult.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(Queries.PollingResult.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {

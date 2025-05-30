@@ -59,7 +59,7 @@ public class Discovery extends AbstractVerticle
 
                          updateDiscoveryStatus(id, RUNNING_STATUS)
 
-                        .compose(v -> DbUtils.sendQueryExecutionRequest(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id)))
+                        .compose(v -> DbUtils.execute(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id)))
 
                         .compose(v -> executeDiscovery(id, discovery)))
 
@@ -118,7 +118,7 @@ public class Discovery extends AbstractVerticle
 
     private Future<JsonObject> fetchDiscoveryDetails(int id)
     {
-        return DbUtils.sendQueryExecutionRequest(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
+        return DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
 
                 .compose(results -> results.isEmpty() ?
 
@@ -129,7 +129,7 @@ public class Discovery extends AbstractVerticle
 
     private Future<Void> updateDiscoveryStatus(int id, String status)
     {
-        return DbUtils.sendQueryExecutionRequest(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add(status))
+        return DbUtils.execute(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add(status))
                 .mapEmpty();
     }
 
@@ -174,7 +174,7 @@ public class Discovery extends AbstractVerticle
 
                 Future.succeededFuture(passedIps) :
 
-                DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, failedTuples)
+                DbUtils.execute(Queries.Discovery.INSERT_RESULT, failedTuples)
 
                         .map(v -> passedIps);
     }
@@ -210,12 +210,12 @@ public class Discovery extends AbstractVerticle
 
         if (!failedTuples.isEmpty())
         {
-            futures.add(DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, failedTuples));
+            futures.add(DbUtils.execute(Queries.Discovery.INSERT_RESULT, failedTuples));
         }
 
         if (!successTuples.isEmpty())
         {
-            futures.add(DbUtils.sendQueryExecutionRequest(Queries.Discovery.INSERT_RESULT, successTuples));
+            futures.add(DbUtils.execute(Queries.Discovery.INSERT_RESULT, successTuples));
         }
 
         return futures.isEmpty() ? Future.succeededFuture() :

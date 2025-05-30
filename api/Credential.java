@@ -56,7 +56,7 @@ public class Credential implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Credential.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -85,7 +85,7 @@ public class Credential implements BaseHandler
 
         if(id == -1) { return; }
 
-        var queryRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var queryRequest = DbUtils.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         queryRequest.onComplete(asyncResult ->
         {
@@ -124,7 +124,7 @@ public class Credential implements BaseHandler
 
         var credentialInput = ctx.body().asJsonObject().getJsonObject(CREDENTIAL);
 
-        DbUtils.sendQueryExecutionRequest(Queries.Credential.INSERT, new JsonArray()
+        DbUtils.execute(Queries.Credential.INSERT, new JsonArray()
                 .add(name)
                 .add(credentialInput)
         ).onComplete(asyncResult ->
@@ -173,7 +173,7 @@ public class Credential implements BaseHandler
                 }, false)
         ) { return; }
 
-        var checkRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
+        var checkRequest = DbUtils.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id));
 
         checkRequest.onComplete(asyncResult ->
         {
@@ -196,7 +196,7 @@ public class Credential implements BaseHandler
 
                 var protocol = ctx.body().asJsonObject().getString(PROTOCOL);
 
-                DbUtils.sendQueryExecutionRequest(Queries.Credential.UPDATE, new JsonArray()
+                DbUtils.execute(Queries.Credential.UPDATE, new JsonArray()
                         .add(id)
                         .add(name)
                         .add(username)
@@ -230,7 +230,7 @@ public class Credential implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.sendQueryExecutionRequest(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Credential.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -243,7 +243,7 @@ public class Credential implements BaseHandler
                     return;
                 }
 
-                var deleteRequest = DbUtils.sendQueryExecutionRequest(Queries.Credential.DELETE, new JsonArray().add(id));
+                var deleteRequest = DbUtils.execute(Queries.Credential.DELETE, new JsonArray().add(id));
 
                 deleteRequest.onComplete(deleteResult ->
                 {

@@ -30,7 +30,9 @@ public class Provision implements BaseHandler
     private static Provision instance;
 
     private Provision()
-    {}
+    {
+
+    }
 
     public static Provision getInstance()
     {
@@ -68,7 +70,7 @@ public class Provision implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Monitor.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -96,7 +98,7 @@ public class Provision implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -121,13 +123,13 @@ public class Provision implements BaseHandler
     @Override
     public void insert(RoutingContext ctx)
     {
-        if(validateProvisionCreation(ctx)) { return; }
+        if(validateCreate(ctx)) { return; }
 
         var discoveryId = ctx.body().asJsonObject().getString(DISCOVERY_ID);
 
         var ips = ctx.body().asJsonObject().getJsonArray(IPS);
 
-        DbUtils.sendQueryExecutionRequest(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(Integer.parseInt(discoveryId))).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(Integer.parseInt(discoveryId))).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -155,7 +157,7 @@ public class Provision implements BaseHandler
                 {
                     for (var j = 0; j < ips.size(); j++)
                     {
-                        addMonitorsFuture.add(DbUtils.sendQueryExecutionRequest(Queries.Monitor.INSERT, new JsonArray().add(Integer.parseInt(discoveryId)).add(ips.getString(j))));
+                        addMonitorsFuture.add(DbUtils.execute(Queries.Monitor.INSERT, new JsonArray().add(Integer.parseInt(discoveryId)).add(ips.getString(j))));
                     }
 
                     var joinFuture = CompositeFuture.join(addMonitorsFuture);
@@ -213,7 +215,7 @@ public class Provision implements BaseHandler
 
         if( id == -1 ){ return; }
 
-        DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -226,7 +228,7 @@ public class Provision implements BaseHandler
                     return;
                 }
 
-                DbUtils.sendQueryExecutionRequest(Queries.Monitor.DELETE, new JsonArray().add(id)).onComplete(monitorDeletion ->
+                DbUtils.execute(Queries.Monitor.DELETE, new JsonArray().add(id)).onComplete(monitorDeletion ->
                 {
                     if (monitorDeletion.succeeded())
                     {
@@ -259,13 +261,13 @@ public class Provision implements BaseHandler
     @Override
     public void update(RoutingContext ctx)
     {
-        if(validateProvisionUpdation(ctx)) { return; }
+        if(validateUpdate(ctx)) { return; }
 
         var id = ctx.body().asJsonObject().getString(Fields.Monitor.ID);
 
         var metrics = ctx.body().asJsonObject().getJsonArray(METRIC_GROUPS);
 
-        DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
                 .compose(monitor ->
                 {
                     if (monitor.isEmpty())
@@ -285,7 +287,7 @@ public class Provision implements BaseHandler
 
                         var isEnabled = metrics.getJsonObject(i).getBoolean(Fields.MetricGroup.IS_ENABLED);
 
-                        updateMetricGroupsFuture.add(DbUtils.sendQueryExecutionRequest(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
+                        updateMetricGroupsFuture.add(DbUtils.execute(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
                     }
 
                     return Future.join(updateMetricGroupsFuture);
@@ -294,7 +296,7 @@ public class Provision implements BaseHandler
                 {
                     if (asyncResult.succeeded())
                     {
-                        DbUtils.sendQueryExecutionRequest(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(monitorResult ->
+                        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(monitorResult ->
                         {
                             if (monitorResult.succeeded())
                             {
@@ -317,7 +319,7 @@ public class Provision implements BaseHandler
                 });
     }
 
-    private boolean validateProvisionCreation(RoutingContext ctx)
+    private boolean validateCreate(RoutingContext ctx)
     {
         final String IPS = "ips";
 
@@ -369,7 +371,7 @@ public class Provision implements BaseHandler
         return false;
     }
 
-    private boolean validateProvisionUpdation(RoutingContext ctx)
+    private boolean validateUpdate(RoutingContext ctx)
     {
         if(Validators.validateBody(ctx)) { return true; }
 

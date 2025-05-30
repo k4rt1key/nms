@@ -32,7 +32,6 @@ public class PgClient
                 .build();
     }
 
-    // Static method to get the singleton instance
     public static PgClient getInstance()
     {
         if (instance == null)
@@ -43,7 +42,6 @@ public class PgClient
         return instance;
     }
 
-    // Method to access the SQL client
     public SqlClient getSqlClient()
     {
         return this.sqlClientInstance;

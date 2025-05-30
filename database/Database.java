@@ -34,22 +34,22 @@ public class Database extends AbstractVerticle
                 startPromise.fail("❌ SqlClient is null");
             }
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS, this::handleExecuteSql);
+            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS, this::execute);
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS, this::handleExecuteSqlWithParams);
+            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS, this::executeWithParams);
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::handleExecuteSqlBatch);
+            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::executeBatch);
 
             // TODO: foreign key problem
             Future.join(List.of(
-                    DbUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
+                    DbUtils.execute(Queries.User.CREATE_SCHEMA),
+                    DbUtils.execute(Queries.Credential.CREATE_SCHEMA),
+                    DbUtils.execute(Queries.Discovery.CREATE_SCHEMA),
+                    DbUtils.execute(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
+                    DbUtils.execute(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
+                    DbUtils.execute(Queries.Monitor.CREATE_SCHEMA),
+                    DbUtils.execute(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
+                    DbUtils.execute(Queries.PollingResult.CREATE_SCHEMA)
             )).onComplete(allSchemasCreated ->
             {
                 if(allSchemasCreated.succeeded())
@@ -90,7 +90,7 @@ public class Database extends AbstractVerticle
                 });
     }
 
-    private void handleExecuteSql(Message<String> message)
+    private void execute(Message<String> message)
     {
         var query = message.body();
 
@@ -113,7 +113,7 @@ public class Database extends AbstractVerticle
                 });
     }
 
-    private void handleExecuteSqlWithParams(Message<JsonObject> message)
+    private void executeWithParams(Message<JsonObject> message)
     {
         var request = message.body();
 
@@ -140,7 +140,7 @@ public class Database extends AbstractVerticle
                 });
     }
 
-    private void handleExecuteSqlBatch(Message<JsonObject> message)
+    private void executeBatch(Message<JsonObject> message)
     {
         var request = message.body();
 

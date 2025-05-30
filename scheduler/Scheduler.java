@@ -188,7 +188,7 @@ public class Scheduler extends AbstractVerticle
 
         if (!insertValuesBatch.isEmpty())
         {
-            var saveRequest = DbUtils.sendQueryExecutionRequest(Queries.PollingResult.INSERT, insertValuesBatch);
+            var saveRequest = DbUtils.execute(Queries.PollingResult.INSERT, insertValuesBatch);
 
             saveRequest.onComplete(insertInDbResult ->
             {
