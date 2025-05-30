@@ -4,6 +4,7 @@ import inet.ipaddr.IPAddressString;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.NetClientOptions;
@@ -105,7 +106,7 @@ public class Discovery extends AbstractVerticle
 
         return vertx.eventBus().<JsonArray>request(Fields.EventBus.PLUGIN_SPAWN_ADDRESS, request)
 
-                .map(reply -> reply.body())
+                .map(Message::body)
 
                 .recover(err ->
                 {

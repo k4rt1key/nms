@@ -40,6 +40,7 @@ public class Database extends AbstractVerticle
 
             vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::handleExecuteSqlBatch);
 
+            // TODO: foreign key problem
             Future.join(List.of(
                     DbUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
                     DbUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),

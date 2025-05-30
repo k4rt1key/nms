@@ -19,6 +19,7 @@ import org.nms.utils.DbUtils;
 import java.util.ArrayList;
 import java.util.List;
 
+// TODO: EVENT driven principles and srp
 public class Scheduler extends AbstractVerticle
 {
     private long timerId = 0L;
@@ -44,6 +45,7 @@ public class Scheduler extends AbstractVerticle
                 startPromise.fail("❌ Error deploying scheduler: " + populateCacheResult.cause().getMessage());
             }
         });
+
     }
 
     @Override
@@ -56,6 +58,7 @@ public class Scheduler extends AbstractVerticle
 
     private void poll()
     {
+        // TODO: naming
         var timedOutGroups = MonitorCache.getInstance().collect(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
