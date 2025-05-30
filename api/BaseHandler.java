@@ -8,7 +8,6 @@ import org.nms.App;
 import org.nms.constants.Database;
 import org.nms.utils.ApiUtils;
 import org.nms.utils.DbUtils;
-import org.nms.validators.Validators;
 
 import static org.nms.constants.Database.Common.*;
 import static org.nms.constants.Eventbus.*;
@@ -96,7 +95,7 @@ public interface BaseHandler
 
     void beforeInsert(RoutingContext ctx);
 
-    void afterInsert(RoutingContext ctx);
+    void afterInsert(JsonArray data);
 
     default void insert(RoutingContext ctx, String tableName)
     {
@@ -115,7 +114,7 @@ public interface BaseHandler
             {
                     ApiUtils.sendSuccess(ctx, 200, "Successfully INSERT INTO " + tableName, dbResponse.result().body());
 
-                    afterInsert(ctx);
+                    afterInsert(dbResponse.result().body());
             }
             else
             {
@@ -126,7 +125,7 @@ public interface BaseHandler
 
     void beforeUpdate(RoutingContext ctx);
 
-    void afterUpdate(RoutingContext ctx);
+    void afterUpdate(JsonArray data);
 
     default void update(RoutingContext ctx, String tableName)
     {
@@ -163,7 +162,7 @@ public interface BaseHandler
             {
                 ApiUtils.sendSuccess(ctx, 200, "Successfully UPDATE " + tableName, dbResponse.result().body());
 
-                afterUpdate(ctx);
+                afterUpdate(dbResponse.result().body());
             }
             else
             {

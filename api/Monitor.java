@@ -1,5 +1,6 @@
 package org.nms.api;
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
@@ -57,7 +58,7 @@ public class Monitor implements BaseHandler
     }
 
     @Override
-    public void afterInsert(RoutingContext ctx)
+    public void afterInsert(JsonArray data)
     {
 
     }
@@ -69,7 +70,7 @@ public class Monitor implements BaseHandler
     }
 
     @Override
-    public void afterUpdate(RoutingContext ctx)
+    public void afterUpdate(JsonArray data)
     {
 
     }

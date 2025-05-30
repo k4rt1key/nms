@@ -1,15 +1,12 @@
 package org.nms.api;
 
-import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.App;
 import org.nms.constants.Database;
 import org.nms.validators.Validators;
 import org.nms.constants.Fields;
-import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
 
 import static org.nms.App.VERTX;
@@ -76,7 +73,7 @@ public class User implements BaseHandler
     }
 
     @Override
-    public void afterInsert(RoutingContext ctx)
+    public void afterInsert(JsonArray data)
     {
 
     }
@@ -88,7 +85,7 @@ public class User implements BaseHandler
     }
 
     @Override
-    public void afterUpdate(RoutingContext ctx)
+    public void afterUpdate(JsonArray data)
     {
 
     }

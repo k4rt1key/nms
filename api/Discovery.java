@@ -4,17 +4,11 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.sqlclient.Tuple;
-import static org.nms.App.LOGGER;
 
 import org.nms.App;
 import org.nms.constants.Database;
-import org.nms.validators.Validators;
 import org.nms.constants.Fields;
-import org.nms.constants.Queries;
 import org.nms.utils.DbUtils;
-
-import java.util.ArrayList;
 
 import static org.nms.App.VERTX;
 import static org.nms.constants.Eventbus.EXECUTE_QUERY;
@@ -22,10 +16,6 @@ import static org.nms.constants.Eventbus.RUN_DISCOVERY;
 import static org.nms.constants.Fields.ENDPOINTS.DISCOVERY_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
 import static org.nms.utils.ApiUtils.sendSuccess;
-import static org.nms.validators.Validators.validateIpWithIpType;
-import static org.nms.constants.Fields.Discovery.ADD_CREDENTIALS;
-import static org.nms.constants.Fields.Discovery.REMOVE_CREDENTIALS;
-import static org.nms.constants.Fields.PluginPollingRequest.CREDENTIALS;
 
 public class Discovery implements BaseHandler
 {
@@ -76,7 +66,7 @@ public class Discovery implements BaseHandler
     }
 
     @Override
-    public void afterInsert(RoutingContext ctx)
+    public void afterInsert(JsonArray data)
     {
 
     }
@@ -88,7 +78,7 @@ public class Discovery implements BaseHandler
     }
 
     @Override
-    public void afterUpdate(RoutingContext ctx)
+    public void afterUpdate(JsonArray data)
     {
 
     }

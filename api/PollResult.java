@@ -4,17 +4,9 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Database;
-import org.nms.validators.Validators;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
-import org.nms.utils.DbUtils;
 
 import static org.nms.App.VERTX;
-import static org.nms.constants.Fields.Credential.*;
-import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
 import static org.nms.constants.Fields.ENDPOINTS.RESULT_ENDPOINT;
-import static org.nms.utils.ApiUtils.sendFailure;
-import static org.nms.utils.ApiUtils.sendSuccess;
 
 public class PollResult implements BaseHandler
 {
@@ -53,7 +45,7 @@ public class PollResult implements BaseHandler
     }
 
     @Override
-    public void afterInsert(RoutingContext ctx)
+    public void afterInsert(JsonArray data)
     {
 
     }
@@ -65,7 +57,7 @@ public class PollResult implements BaseHandler
     }
 
     @Override
-    public void afterUpdate(RoutingContext ctx)
+    public void afterUpdate(JsonArray data)
     {
 
     }

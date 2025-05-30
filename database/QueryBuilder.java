@@ -6,6 +6,8 @@ import io.vertx.sqlclient.Tuple;
 import org.nms.App;
 import org.nms.constants.Database.*;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringJoiner;
 
 import static org.nms.constants.Database.Common.COLUMN;
@@ -21,6 +23,20 @@ public class QueryBuilder
         public final Tuple parameters;
 
         public SqlQuery(String query, Tuple parameters)
+        {
+            this.query = query;
+
+            this.parameters = parameters;
+        }
+    }
+
+    public static class BatchSqlQuery
+    {
+        public final String query;
+
+        public final List<Tuple> parameters;
+
+        public BatchSqlQuery(String query, List<Tuple> parameters)
         {
             this.query = query;
 
