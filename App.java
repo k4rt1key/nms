@@ -10,9 +10,6 @@ import java.util.concurrent.TimeUnit;
 import org.nms.api.HttpServer;
 import org.nms.constants.Config;
 import org.nms.database.Database;
-import org.nms.discovery.Discovery;
-import org.nms.plugin.Plugin;
-import org.nms.scheduler.Scheduler;
 
 
 public class App
@@ -29,9 +26,6 @@ public class App
         try
         {
             VERTX.deployVerticle(new Database())
-                    .compose(v -> VERTX.deployVerticle(new Scheduler()))
-                    .compose(v -> VERTX.deployVerticle(new Plugin()))
-                    .compose(v -> VERTX.deployVerticle(new Discovery()))
                     .compose(v -> VERTX.deployVerticle(new HttpServer()))
 
             .onComplete(asyncResult ->

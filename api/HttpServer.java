@@ -56,12 +56,15 @@ public class HttpServer extends AbstractVerticle
 
         // ===== Configure Discovery Routes =====
         Discovery.getInstance().init(router);
+        DiscoveryCredential.getInstance().init(router);
+        DiscoveryResult.getInstance().init(router);
 
         // ===== Configure Provision Routes =====
-        Provision.getInstance().init(router);
+        Monitor.getInstance().init(router);
+        Metric.getInstance().init(router);
 
         // ===== Configure Result Routes =====
-        Result.getInstance().init(router);
+        PollResult.getInstance().init(router);
 
         // ===== Configure Router To Server =====
         server.requestHandler(router);

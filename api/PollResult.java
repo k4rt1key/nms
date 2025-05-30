@@ -12,23 +12,24 @@ import org.nms.utils.DbUtils;
 import static org.nms.App.VERTX;
 import static org.nms.constants.Fields.Credential.*;
 import static org.nms.constants.Fields.ENDPOINTS.CREDENTIALS_ENDPOINT;
+import static org.nms.constants.Fields.ENDPOINTS.RESULT_ENDPOINT;
 import static org.nms.utils.ApiUtils.sendFailure;
 import static org.nms.utils.ApiUtils.sendSuccess;
 
-public class Credential implements BaseHandler
+public class PollResult implements BaseHandler
 {
-    private static Credential instance;
+    private static PollResult instance;
 
-    private Credential()
+    private PollResult()
     {
 
     }
 
-    public static Credential getInstance()
+    public static PollResult getInstance()
     {
         if(instance == null)
         {
-            instance = new Credential();
+            instance = new PollResult();
         }
 
         return instance;
@@ -37,24 +38,12 @@ public class Credential implements BaseHandler
     @Override
     public void init(Router router)
     {
-        var credentialRouter = Router.router(VERTX);
+        var pollResultRouter = Router.router(VERTX);
 
-        credentialRouter.get("/")
-                .handler((ctx) -> this.list(ctx, Database.Table.CREDENTIAL));
+        pollResultRouter.get("/")
+                .handler((ctx) -> this.list(ctx, Database.Table.POLL_RESULTS));
 
-        credentialRouter.get("/:id")
-                .handler((ctx) -> this.get(ctx, Database.Table.CREDENTIAL));
-
-        credentialRouter.post("/")
-                .handler((ctx) -> this.insert(ctx, Database.Table.CREDENTIAL));
-
-        credentialRouter.patch("/:id")
-                .handler((ctx) -> this.update(ctx, Database.Table.CREDENTIAL));
-
-        credentialRouter.delete("/:id")
-                .handler((ctx) -> this.delete(ctx, Database.Table.CREDENTIAL));
-
-        router.route(CREDENTIALS_ENDPOINT).subRouter(credentialRouter);
+        router.route(RESULT_ENDPOINT).subRouter(pollResultRouter);
     }
 
     @Override

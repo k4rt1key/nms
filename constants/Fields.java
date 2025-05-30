@@ -12,6 +12,12 @@ public class Fields
 
         public static final String DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
 
+        public static final String DISCOVERY_RESULT_ENDPOINT = "/api/v1/discovery-result/*";
+
+        public static final String DISCOVERY_CREDENTIAL_ENDPOINT = "/api/v1/discovery-credential/*";
+
+        public static final String METRIC_ENDPOINT = "/api/v1/metric/*";
+
         public static final String RESULT_ENDPOINT = "/api/v1/result/*";
     }
 
@@ -22,6 +28,8 @@ public class Fields
        public static final String NAME = "name";
 
        public static final String PASSWORD = "password";
+
+       public static final String JWT_KEY = "jwt";
     }
 
     public static class Credential
@@ -193,10 +201,7 @@ public class Fields
 
         public static final String RUN_DISCOVERY_ADDRESS = "discovery";
 
-        public static final String EXECUTE_SQL_QUERY_ADDRESS = "database.execute.sql";
+        public static final String EXECUTE_QUERY_ADDRESS = "database.execute.query";
 
-        public static final String EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS = "database.execute.sql.params";
-
-        public static final String EXECUTE_SQL_QUERY_BATCH_ADDRESS = "database.execute.sql.batch";
     }
 }

@@ -1,19 +1,223 @@
 package org.nms.api;
 
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import org.nms.App;
+import org.nms.constants.Database;
+import org.nms.utils.ApiUtils;
+import org.nms.utils.DbUtils;
+import org.nms.validators.Validators;
+
+import static org.nms.constants.Database.Common.*;
+import static org.nms.constants.Eventbus.*;
 
 public interface BaseHandler
 {
     void init(Router router);
 
-    void list(RoutingContext ctx);
+    default void list(RoutingContext ctx, String tableName)
+    {
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.LIST,
+                null,
+                null
+        );
 
-    void get(RoutingContext ctx);
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully LIST " + tableName, dbResponse.result().body());
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to LIST " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
+    }
 
-    void insert(RoutingContext ctx);
+    default void get(RoutingContext ctx, String tableName)
+    {
+        var params = ctx.pathParams();
 
-    void update(RoutingContext ctx);
+        var conditions = new JsonArray();
 
-    void delete(RoutingContext ctx);
+        for(String key : params.keySet())
+        {
+            try
+            {
+                Integer.parseInt(params.get(key));
+
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, Integer.parseInt(params.get(key))));
+            }
+            catch (Exception exception)
+            {
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, params.get(key)));
+            }
+        }
+
+
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.GET,
+                conditions,
+                null
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully GET " + tableName, dbResponse.result().body());
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to GET " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
+    }
+
+    void beforeInsert(RoutingContext ctx);
+
+    void afterInsert(RoutingContext ctx);
+
+    default void insert(RoutingContext ctx, String tableName)
+    {
+        beforeInsert(ctx);
+
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.INSERT,
+                null,
+                ctx.body().asJsonObject()
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
+            {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully INSERT INTO " + tableName, dbResponse.result().body());
+
+                    afterInsert(ctx);
+            }
+            else
+            {
+                    ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to INSERT " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
+    }
+
+    void beforeUpdate(RoutingContext ctx);
+
+    void afterUpdate(RoutingContext ctx);
+
+    default void update(RoutingContext ctx, String tableName)
+    {
+        beforeUpdate(ctx);
+
+        var params = ctx.pathParams();
+
+        var conditions = new JsonArray();
+
+        for(String key : params.keySet())
+        {
+            try
+            {
+                Integer.parseInt(params.get(key));
+
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, Integer.parseInt(params.get(key))));
+            }
+            catch (Exception exception)
+            {
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, params.get(key)));
+            }
+        }
+
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.UPDATE,
+                conditions,
+                ctx.body().asJsonObject()
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
+            {
+                ApiUtils.sendSuccess(ctx, 200, "Successfully UPDATE " + tableName, dbResponse.result().body());
+
+                afterUpdate(ctx);
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to UPDATE " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
+    }
+
+    default void delete(RoutingContext ctx, String tableName)
+    {
+        var params = ctx.pathParams();
+
+        var conditions = new JsonArray();
+
+        for(String key : params.keySet())
+        {
+            try
+            {
+                Integer.parseInt(params.get(key));
+
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, Integer.parseInt(params.get(key))));
+            }
+            catch (Exception exception)
+            {
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, params.get(key)));
+            }
+        }
+
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.DELETE,
+                conditions,
+                null
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
+                {
+                    ApiUtils.sendFailure(ctx, 404, "No Data Found");
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully DELETE " + tableName, dbResponse.result().body());
+
+                    // TODO : Delete in cache
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to DELETE " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
+    }
 }

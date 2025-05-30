@@ -1,7 +1,6 @@
 package org.nms.database;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
@@ -9,14 +8,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlClient;
-import io.vertx.sqlclient.Tuple;
-import static org.nms.App.LOGGER;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
-import org.nms.utils.DbUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import static org.nms.App.LOGGER;
+import static org.nms.constants.Eventbus.EXECUTE_QUERY;
+
+import org.nms.constants.Database.*;
 
 public class Database extends AbstractVerticle
 {
@@ -31,38 +27,14 @@ public class Database extends AbstractVerticle
 
             if (dbClient == null)
             {
-                startPromise.fail("❌ SqlClient is null");
+                startPromise.fail("SqlClient is null");
             }
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS, this::handleExecuteSql);
+            vertx.eventBus().localConsumer(EXECUTE_QUERY, this::execute);
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS, this::handleExecuteSqlWithParams);
+            LOGGER.info("Successfully deployed Database Verticle");
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::handleExecuteSqlBatch);
-
-            // TODO: foreign key problem
-            Future.join(List.of(
-                    DbUtils.sendQueryExecutionRequest(Queries.User.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Credential.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                    DbUtils.sendQueryExecutionRequest(Queries.PollingResult.CREATE_SCHEMA)
-            )).onComplete(allSchemasCreated ->
-            {
-                if(allSchemasCreated.succeeded())
-                {
-                    LOGGER.info("✅ Successfully deployed Database Verticle");
-
-                    startPromise.complete();
-                }
-                else
-                {
-                    LOGGER.warn("⚠ Something went wrong creating db schema");
-                }
-            });
+            startPromise.complete();
         }
         catch (Exception exception)
         {
@@ -75,91 +47,50 @@ public class Database extends AbstractVerticle
     {
         dbClient
                 .close()
-                .onComplete(clientClose ->
+
+                .onComplete(asyncResult ->
                 {
-                    if(clientClose.succeeded())
+                    if(asyncResult.succeeded())
                     {
-                        LOGGER.info("\uD83D\uDED1 Database Verticle Stopped");
+                        LOGGER.info("Database Verticle Stopped");
 
                         stopPromise.complete();
                     }
                     else
                     {
-                        stopPromise.fail("❌ Failed to close database connection, error => " + clientClose.cause().getMessage());
+                        stopPromise.fail("Failed to close database connection, error => " + asyncResult.cause().getMessage());
                     }
                 });
     }
 
-    private void handleExecuteSql(Message<String> message)
+    private void execute(Message<JsonObject> message)
     {
-        var query = message.body();
+        var operation = message.body().getString(Common.OPERATION);
 
-        dbClient.preparedQuery(query)
+        var tableName = message.body().getString(Common.TABLE_NAME);
 
-                .execute()
+        var conditions = message.body().getJsonArray(Common.CONDITION);
 
-                .map(this::toJsonArray)
+        var data = message.body().getJsonObject(Common.DATA);
 
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
-                    {
-                        message.reply(dbResult.result());
-                    }
-                    else
-                    {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
-                    }
-                });
-    }
-
-    private void handleExecuteSqlWithParams(Message<JsonObject> message)
-    {
-        var request = message.body();
-
-        var query = request.getString("query");
-
-        var params = request.getJsonArray("params");
-
-        dbClient.preparedQuery(query)
-
-                .execute(Tuple.wrap(params.getList().toArray()))
-
-                .map(this::toJsonArray)
-
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
-                    {
-                        message.reply(dbResult.result());
-                    }
-                    else
-                    {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
-                    }
-                });
-    }
-
-    private void handleExecuteSqlBatch(Message<JsonObject> message)
-    {
-        var request = message.body();
-
-        var query = request.getString("query");
-
-        var paramsArray = request.getJsonArray("params");
-
-        var tuples = new ArrayList<Tuple>();
-
-        for (int i = 0; i < paramsArray.size(); i++)
+        QueryBuilder.SqlQuery sqlQuery = switch (operation)
         {
-            var params = paramsArray.getJsonArray(i);
+            case Operation.LIST -> QueryBuilder.buildSelectAll(tableName);
 
-            tuples.add(Tuple.wrap(params.getList().toArray()));
-        }
+            case Operation.GET -> QueryBuilder.buildSelectByCondition(tableName, conditions);
 
-        dbClient.preparedQuery(query)
+            case Operation.INSERT -> QueryBuilder.buildInsert(tableName, data);
 
-                .executeBatch(tuples)
+            case Operation.UPDATE -> QueryBuilder.buildUpdate(tableName, data, conditions);
+
+            case Operation.DELETE -> QueryBuilder.buildDelete(tableName, conditions);
+
+            default -> QueryBuilder.buildDefault();
+        };
+
+        dbClient.preparedQuery(sqlQuery.query)
+
+                .execute(sqlQuery.parameters)
 
                 .map(this::toJsonArray)
 
@@ -171,7 +102,7 @@ public class Database extends AbstractVerticle
                     }
                     else
                     {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
+                        message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
                     }
                 });
     }
