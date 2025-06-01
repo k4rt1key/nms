@@ -1,6 +1,6 @@
 package org.nms.constants;
 
-public class Config
+public class Global
 {
     public static final Boolean PRODUCTION = false;
 
@@ -18,7 +18,8 @@ public class Config
 
     public static final int NUMBER_OF_DB_VERTICLE = 1;
 
-    // ===== DB =====
+    // DB CONFIG
+
     public static final Integer DB_PORT = 5000;
 
     public static final String DB_URL = "localhost";
@@ -29,14 +30,28 @@ public class Config
 
     public static final String DB_PASSWORD = "nms";
 
-    // ====== Time ( in seconds ) =====
-    public static final int SCHEDULER_CHECKING_INTERVAL = 60;
+    // TIMEOUTS ( SECONDS )
 
-    public static final int PORT_TIMEOUT = 1;
+    public static final int SCHEDULING_INTERVAL = 60;
 
-    public static final int BASE_TIME = 10;
+    public static final int PORT_CHECK_TIMEOUT = 1;
+
+    public static final int BASE_PLUGIN_TIMEOUT = 10;
 
     public static final int DISCOVERY_TIMEOUT_PER_IP = 10;
 
-    public static final int POLLING_TIMEOUT_PER_METRIC_GROUP = 15;
+    public static final int POLLING_TIMEOUT_PER_METRIC = 15;
+
+    // HTTP ENDPOINTS
+
+    public static final String CREDENTIALS_ENDPOINT = "/api/v1/credential/*";
+
+    public static final String MONITOR_ENDPOINT = "/api/v1/provision/*";
+
+    public static final String USER_ENDPOINT = "/api/v1/user/*";
+
+    public static final String DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
+
+    public static final String RESULT_ENDPOINT = "/api/v1/result/*";
+
 }

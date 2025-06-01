@@ -4,23 +4,27 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.sqlclient.Tuple;
 import org.nms.App;
+import org.nms.constants.Database;
 import org.nms.constants.Database.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.logging.Logger;
 
-import static org.nms.constants.Database.Common.COLUMN;
-import static org.nms.constants.Database.Common.VALUE;
+import static org.nms.App.LOGGER;
+import static org.nms.constants.Database.Common.*;
 
 public class QueryBuilder
 {
 
     public static class SqlQuery
     {
-        public final String query;
+        public String query;
 
-        public final Tuple parameters;
+        public Tuple parameters;
+
+        public List<Tuple> batchParameters;
 
         public SqlQuery(String query, Tuple parameters)
         {
@@ -28,19 +32,12 @@ public class QueryBuilder
 
             this.parameters = parameters;
         }
-    }
 
-    public static class BatchSqlQuery
-    {
-        public final String query;
-
-        public final List<Tuple> parameters;
-
-        public BatchSqlQuery(String query, List<Tuple> parameters)
+        public SqlQuery(String query, List<Tuple> batchParameters)
         {
             this.query = query;
 
-            this.parameters = parameters;
+            this.batchParameters = batchParameters;
         }
     }
 
@@ -63,7 +60,7 @@ public class QueryBuilder
 
             String column = condition.getString(COLUMN);
 
-            Object value = condition.getValue(Common.VALUE);
+            Object value = condition.getValue(VALUE);
 
             conditionSql.add(column + " = $" + index++);
 
@@ -71,8 +68,6 @@ public class QueryBuilder
         }
 
         String sql = String.format("SELECT * FROM %s WHERE %s;", table, conditionSql);
-
-        App.LOGGER.debug(sql + values.getValue(0));
 
         return new SqlQuery(sql, values);
     }
@@ -89,6 +84,8 @@ public class QueryBuilder
 
         for (String key : data.fieldNames())
         {
+            if(key.equals(ID)) continue;
+
             columns.add(key);
 
             placeholders.add("$" + index++);
@@ -96,10 +93,55 @@ public class QueryBuilder
             values.addValue(data.getValue(key));
         }
 
-        String sql = String.format("INSERT INTO %s (%s) VALUES (%s) RETURNING id;", table, columns, placeholders);
+        String sql = String.format("INSERT INTO %s (%s) VALUES (%s) RETURNING *;", table, columns, placeholders);
 
         return new SqlQuery(sql, values);
     }
+
+    public static SqlQuery buildBatchInsert(String table, JsonArray data)
+    {
+        var firstObj = data.getJsonObject(0);
+
+        var columns = new ArrayList<String>();
+
+        for (var key : firstObj.fieldNames())
+        {
+            if (!key.equals(ID))
+            {
+                columns.add(key);
+            }
+        }
+
+        var columnSql = String.join(", ", columns);
+
+        var placeholderSql = new StringJoiner(", ", "(", ")");
+
+        for (int i = 0; i < columns.size(); i++)
+        {
+            placeholderSql.add("$" + (i + 1));
+        }
+
+        var sql = String.format("INSERT INTO %s (%s) VALUES %s RETURNING *;", table, columnSql, placeholderSql);
+
+        var batchParameters = new ArrayList<Tuple>();
+
+        for (int i = 0; i < data.size(); i++)
+        {
+            var row = data.getJsonObject(i);
+
+            var tuple = Tuple.tuple();
+
+            for (var col : columns)
+            {
+                tuple.addValue(row.getValue(col));
+            }
+
+            batchParameters.add(tuple);
+        }
+
+        return new SqlQuery(sql, batchParameters);
+    }
+
 
     public static SqlQuery buildUpdate(String table, JsonObject data, JsonArray conditions)
     {
@@ -111,6 +153,8 @@ public class QueryBuilder
 
         for (String key : data.fieldNames())
         {
+            if(key.equals(ID)) continue;
+
             updates.add(key + " = COALESCE($" + index++ + ", " + key + ")");
 
             values.addValue(data.getValue(key));
@@ -131,7 +175,7 @@ public class QueryBuilder
             values.addValue(value);
         }
 
-        String sql = String.format("UPDATE %s SET %s WHERE %s RETURNING id;", table, updates, conditionSql);
+        String sql = String.format("UPDATE %s SET %s WHERE %s RETURNING *;", table, updates, conditionSql);
 
         return new SqlQuery(sql, values);
     }
@@ -162,9 +206,28 @@ public class QueryBuilder
         return new SqlQuery(sql, values);
     }
 
-    public static SqlQuery buildSchema()
+    public static SqlQuery buildSchema(String tableName)
     {
-        return new SqlQuery(Common.CREATE_ALL_SCHEMAS, Tuple.tuple());
+        var query = switch (tableName)
+        {
+            case(Table.USER_PROFILE) -> CreateSchemaQueries.USER_PROFILE;
+
+            case(Table.CREDENTIAL_PROFILE) -> CreateSchemaQueries.CREDENTIAL_PROFILE;
+
+            case(Table.DISCOVERY_PROFILE) -> CreateSchemaQueries.DISCOVERY_PROFILE;
+
+            case(Table.DISCOVERY_CREDENTIAL) -> CreateSchemaQueries.DISCOVERY_CREDENTIAL;
+
+            case(Table.DISCOVERY_RESULT) -> CreateSchemaQueries.DISCOVERY_RESULT;
+
+            case(Table.MONITOR) -> CreateSchemaQueries.MONITOR;
+
+            case(Table.METRIC) -> CreateSchemaQueries.METRIC;
+
+            default -> CreateSchemaQueries.POLLING_RESULT;
+        };
+
+        return new SqlQuery(query, Tuple.tuple());
     }
 
     public static SqlQuery buildDefault()

@@ -5,7 +5,7 @@ import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.sqlclient.PoolOptions;
 import io.vertx.sqlclient.SqlClient;
 import org.nms.App;
-import org.nms.constants.Config;
+import org.nms.constants.Global;
 
 public class PgClient
 {
@@ -16,13 +16,13 @@ public class PgClient
     private PgClient()
     {
         var connectOptions = new PgConnectOptions()
-                .setPort(Config.DB_PORT)
-                .setHost(Config.DB_URL)
-                .setDatabase(Config.DB_NAME)
-                .setUser(Config.DB_USER)
-                .setPassword(Config.DB_PASSWORD);
+                .setPort(Global.DB_PORT)
+                .setHost(Global.DB_URL)
+                .setDatabase(Global.DB_NAME)
+                .setUser(Global.DB_USER)
+                .setPassword(Global.DB_PASSWORD);
 
-        var poolOptions = new PoolOptions().setMaxSize(Config.NUMBER_OF_DB_VERTICLE * 5);
+        var poolOptions = new PoolOptions().setMaxSize(Global.NUMBER_OF_DB_VERTICLE * 5);
 
         this.sqlClientInstance = PgBuilder
                 .client()
@@ -32,7 +32,6 @@ public class PgClient
                 .build();
     }
 
-    // Static method to get the singleton instance
     public static PgClient getInstance()
     {
         if (instance == null)
@@ -43,7 +42,6 @@ public class PgClient
         return instance;
     }
 
-    // Method to access the SQL client
     public SqlClient getSqlClient()
     {
         return this.sqlClientInstance;

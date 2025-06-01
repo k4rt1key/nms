@@ -8,13 +8,14 @@ import io.vertx.core.impl.logging.LoggerFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.nms.api.HttpServer;
-import org.nms.constants.Config;
+import org.nms.constants.Eventbus;
+import org.nms.constants.Global;
 import org.nms.database.Database;
 
 
 public class App
 {
-    public static final Vertx VERTX = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Config.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
+    public static final Vertx VERTX = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Global.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
 
     public static final Logger LOGGER = LoggerFactory.getLogger(App.class);
 
@@ -26,6 +27,7 @@ public class App
         try
         {
             VERTX.deployVerticle(new Database())
+
                     .compose(v -> VERTX.deployVerticle(new HttpServer()))
 
             .onComplete(asyncResult ->

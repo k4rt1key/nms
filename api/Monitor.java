@@ -1,15 +1,12 @@
 package org.nms.api;
 
-import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
-
-import static org.nms.constants.Fields.ENDPOINTS.PROVISION_ENDPOINT;
 
 import org.nms.App;
 import org.nms.constants.Database;
+import org.nms.constants.Global;
 
-public class Monitor implements BaseHandler
+public class Monitor implements AbstractHandler
 {
     private static Monitor instance;
 
@@ -48,31 +45,8 @@ public class Monitor implements BaseHandler
         provisionRouter.delete("/:id")
                 .handler((ctx) -> this.delete(ctx, Database.Table.MONITOR) );
 
-        router.route(PROVISION_ENDPOINT).subRouter(provisionRouter);
+        router.route(Global.MONITOR_ENDPOINT).subRouter(provisionRouter);
     }
 
-    @Override
-    public void beforeInsert(RoutingContext ctx)
-    {
-
-    }
-
-    @Override
-    public void afterInsert(JsonArray data)
-    {
-
-    }
-
-    @Override
-    public void beforeUpdate(RoutingContext ctx)
-    {
-
-    }
-
-    @Override
-    public void afterUpdate(JsonArray data)
-    {
-
-    }
 
 }

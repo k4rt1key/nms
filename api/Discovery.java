@@ -5,19 +5,16 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
-import org.nms.App;
 import org.nms.constants.Database;
-import org.nms.constants.Fields;
+import org.nms.constants.Eventbus;
+import org.nms.constants.Global;
+import org.nms.utils.ApiUtils;
 import org.nms.utils.DbUtils;
+import org.nms.validators.Validators;
 
 import static org.nms.App.VERTX;
-import static org.nms.constants.Eventbus.EXECUTE_QUERY;
-import static org.nms.constants.Eventbus.RUN_DISCOVERY;
-import static org.nms.constants.Fields.ENDPOINTS.DISCOVERY_ENDPOINT;
-import static org.nms.utils.ApiUtils.sendFailure;
-import static org.nms.utils.ApiUtils.sendSuccess;
 
-public class Discovery implements BaseHandler
+public class Discovery implements AbstractHandler
 {
     private static Discovery instance;
 
@@ -39,102 +36,166 @@ public class Discovery implements BaseHandler
         var discoveryRouter = Router.router(VERTX);
 
         discoveryRouter.get("/:id")
-                .handler((ctx) -> this.get(ctx, Database.Table.DISCOVERY));
+                .handler((ctx) -> this.get(ctx, Database.Table.DISCOVERY_PROFILE));
+
+        discoveryRouter.get("/credential/:discovery_profile")
+                .handler((ctx) -> this.get(ctx, Database.Table.DISCOVERY_CREDENTIAL));
 
         discoveryRouter.get("/")
-                .handler((ctx) -> this.list(ctx, Database.Table.DISCOVERY));
+                .handler((ctx) -> this.list(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.post("/")
-                .handler((ctx) -> this.insert(ctx, Database.Table.DISCOVERY));
-
-        discoveryRouter.post("/run/:id")
-                .handler((ctx) -> this.run(ctx, Database.Table.DISCOVERY));
+                .handler((ctx) -> this.insert(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.patch("/:id")
-                .handler((ctx) -> this.update(ctx, Database.Table.DISCOVERY));
+                .handler((ctx) -> this.update(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.delete("/:id")
-                .handler((ctx) -> this.delete(ctx, Database.Table.DISCOVERY));
+                .handler((ctx) -> this.delete(ctx, Database.Table.DISCOVERY_PROFILE));
 
-        router.route(DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
+        router.route(Global.DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
     }
 
     @Override
-    public void beforeInsert(RoutingContext ctx)
+    public void insert(RoutingContext ctx, String tableName)
     {
+        if(validateCreateDiscovery(ctx)) { return; }
 
-    }
+        var requestBody = ctx.body().asJsonObject();
 
-    @Override
-    public void afterInsert(JsonArray data)
-    {
+        var discoveryData = new JsonObject()
+                .put(Database.Discovery.IP, requestBody.getString(Database.Discovery.IP))
+                .put(Database.Discovery.IP_TYPE, requestBody.getString(Database.Discovery.IP_TYPE))
+                .put(Database.Discovery.NAME, requestBody.getString(Database.Discovery.NAME))
+                .put(Database.Discovery.PORT, requestBody.getInteger(Database.Discovery.PORT));
 
-    }
+        var discoveryInsertRequest = DbUtils.buildRequest(
+                Database.Table.DISCOVERY_PROFILE,
+                Database.Operation.INSERT,
+                null,
+                discoveryData,
+                null
+        );
 
-    @Override
-    public void beforeUpdate(RoutingContext ctx)
-    {
-
-    }
-
-    @Override
-    public void afterUpdate(JsonArray data)
-    {
-
-    }
-
-    public void run(RoutingContext ctx, String tableName)
-    {
-        try
+        VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, discoveryInsertRequest, discoveryInsertResult ->
         {
-            var conditions = new JsonArray();
-
-            var params = ctx.pathParams();
-
-            for(String key : params.keySet())
+            if(discoveryInsertResult.failed())
             {
-                conditions.add(new JsonObject().put(key, params.get(key)));
+                ApiUtils.sendFailure(ctx, 500, "Something went wrong","Failed to INSERT discovery, Cause: " + discoveryInsertResult.cause().getMessage());
+
+                return;
             }
 
-            var queryRequest = DbUtils.buildRequest(
-                    tableName,
-                    Database.Operation.GET,
-                    conditions,
-                    null
+            var insertedDiscovery = discoveryInsertResult.result().body().getJsonObject(0);
+
+            var discoveryId = insertedDiscovery.getInteger(Database.Discovery.ID);
+
+            var credentialIds = requestBody.getJsonArray(Database.Table.CREDENTIAL_PROFILE);
+
+            var discoveryCredentialRecords = new JsonArray();
+
+            for (var credentialId : credentialIds)
+            {
+                discoveryCredentialRecords.add(new JsonObject()
+                        .put(Database.DiscoveryCredential.CREDENTIAL_PROFILE, Integer.parseInt(credentialId.toString()))
+                        .put(Database.DiscoveryCredential.DISCOVERY_PROFILE, discoveryId));
+            }
+
+            var credentialInsertRequest = DbUtils.buildRequest(
+                    Database.Table.DISCOVERY_CREDENTIAL,
+                    Database.Operation.BATCH_INSERT,
+                    null,
+                    null,
+                    discoveryCredentialRecords
             );
 
-            App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+            VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, credentialInsertRequest, credentialInsertResult ->
             {
-                if (dbResponse.succeeded())
+                if(credentialInsertResult.failed())
                 {
-                    var discovery = dbResponse.result().body();
+                    ApiUtils.sendFailure(ctx, 500, "Something went wrong","Failed to INSERT discovery-credential, Cause: " + discoveryInsertResult.cause().getMessage());
 
-                    if (discovery.isEmpty())
-                    {
-                        sendFailure(ctx, 404, "Discovery not found");
-
-                        return;
-                    }
-
-                    var id = discovery.getJsonObject(0).getInteger(Fields.Discovery.ID);
-
-                    VERTX.eventBus().send (
-                            RUN_DISCOVERY,
-                            new JsonObject().put(Fields.Discovery.ID, id)
-                    );
-
-                    sendSuccess(ctx, 202, "Discovery request with id " + id + " accepted and is being processed", new JsonArray());
+                    return;
                 }
-                else
-                {
-                    sendFailure(ctx, 500, "Something Went Wrong", dbResponse.cause().getMessage());
-                }
+
+                var insertedCredentials = credentialInsertResult.result().body();
+
+                insertedDiscovery.put(Database.DiscoveryCredential.CREDENTIAL_PROFILE, insertedCredentials);
+
+                var responseArray = new JsonArray().add(insertedDiscovery);
+
+                ApiUtils.sendSuccess(ctx, 201, "Successfully INSERT discovery", responseArray);
+
             });
-        }
-        catch (Exception exception)
+        });
+    }
+
+    private boolean validateCreateDiscovery(RoutingContext ctx)
+    {
+
+        if(Validators.validateBody(ctx))  return true;
+
+        if(Validators.validateInputFields(ctx, new String[]
+                {
+                        Database.Discovery.IP,
+                        Database.Discovery.IP_TYPE,
+                        Database.Discovery.NAME,
+                        Database.Discovery.PORT,
+                }, true)) { return true; }
+
+        var body = ctx.body().asJsonObject();
+
+        var credentials = body.getJsonArray(Database.DiscoveryCredential.CREDENTIAL_PROFILE);
+
+        if (credentials == null || credentials.isEmpty())
         {
-            sendFailure(ctx, 400, "Invalid discovery ID provided");
+            ApiUtils.sendFailure(ctx, 400, "Missing or empty 'credentials' field");
+
+            return true;
         }
+
+        for (var credential : credentials)
+        {
+            try
+            {
+                Integer.parseInt(credential.toString());
+            }
+            catch (NumberFormatException exception)
+            {
+                ApiUtils.sendFailure(ctx, 400, "Invalid credential ID: " + credential);
+
+                return true;
+            }
+        }
+
+        var port = body.getInteger(Database.Discovery.PORT);
+
+        if (port < 1 || port > 65535)
+        {
+            ApiUtils.sendFailure(ctx, 400, "Port must be between 1 and 65535");
+
+            return true;
+        }
+
+        var ipType = body.getString(Database.Discovery.IP_TYPE);
+
+        if (!ipType.equals("SINGLE") && !ipType.equals("RANGE") && !ipType.equals("CIDR"))
+        {
+            ApiUtils.sendFailure(ctx, 400, "Invalid IP type. Only 'SINGLE', 'RANGE' and 'CIDR' are supported");
+
+            return true;
+        }
+
+        var ip = body.getString(Database.Discovery.IP);
+
+        if (Validators.validateIpWithIpType(ip, ipType))
+        {
+            ApiUtils.sendFailure(ctx, 400, "Invalid IP address or mismatch Ip and IpType: " + ip + ", " + ipType);
+
+            return true;
+        }
+
+        return false;
     }
 
 }

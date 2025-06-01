@@ -1,5 +1,7 @@
 package org.nms.api;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -12,15 +14,16 @@ import org.nms.utils.DbUtils;
 import static org.nms.constants.Database.Common.*;
 import static org.nms.constants.Eventbus.*;
 
-public interface BaseHandler
+public interface AbstractHandler
 {
     void init(Router router);
 
     default void list(RoutingContext ctx, String tableName)
     {
-        var queryRequest = DbUtils.buildRequest(
+        var queryRequest = DbUtils.buildRequest (
                 tableName,
                 Database.Operation.LIST,
+                null,
                 null,
                 null
         );
@@ -70,6 +73,7 @@ public interface BaseHandler
                 tableName,
                 Database.Operation.GET,
                 conditions,
+                null,
                 null
         );
 
@@ -93,19 +97,14 @@ public interface BaseHandler
         });
     }
 
-    void beforeInsert(RoutingContext ctx);
-
-    void afterInsert(JsonArray data);
-
     default void insert(RoutingContext ctx, String tableName)
     {
-        beforeInsert(ctx);
-
         var queryRequest = DbUtils.buildRequest(
                 tableName,
                 Database.Operation.INSERT,
                 null,
-                ctx.body().asJsonObject()
+                ctx.body().asJsonObject(),
+                null
         );
 
         App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
@@ -113,24 +112,17 @@ public interface BaseHandler
             if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
             {
                     ApiUtils.sendSuccess(ctx, 200, "Successfully INSERT INTO " + tableName, dbResponse.result().body());
-
-                    afterInsert(dbResponse.result().body());
             }
             else
             {
                     ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to INSERT " + tableName + " : " + dbResponse.cause().getMessage());
             }
         });
+
     }
-
-    void beforeUpdate(RoutingContext ctx);
-
-    void afterUpdate(JsonArray data);
 
     default void update(RoutingContext ctx, String tableName)
     {
-        beforeUpdate(ctx);
-
         var params = ctx.pathParams();
 
         var conditions = new JsonArray();
@@ -153,7 +145,8 @@ public interface BaseHandler
                 tableName,
                 Database.Operation.UPDATE,
                 conditions,
-                ctx.body().asJsonObject()
+                ctx.body().asJsonObject(),
+                null
         );
 
         App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
@@ -161,14 +154,13 @@ public interface BaseHandler
             if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
             {
                 ApiUtils.sendSuccess(ctx, 200, "Successfully UPDATE " + tableName, dbResponse.result().body());
-
-                afterUpdate(dbResponse.result().body());
             }
             else
             {
                 ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to UPDATE " + tableName + " : " + dbResponse.cause().getMessage());
             }
         });
+
     }
 
     default void delete(RoutingContext ctx, String tableName)
@@ -195,6 +187,7 @@ public interface BaseHandler
                 tableName,
                 Database.Operation.DELETE,
                 conditions,
+                null,
                 null
         );
 
@@ -218,5 +211,7 @@ public interface BaseHandler
                 ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to DELETE " + tableName + " : " + dbResponse.cause().getMessage());
             }
         });
+
     }
+
 }

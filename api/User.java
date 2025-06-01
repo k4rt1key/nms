@@ -5,19 +5,17 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.constants.Database;
+import org.nms.constants.Global;
 import org.nms.validators.Validators;
-import org.nms.constants.Fields;
 import org.nms.utils.DbUtils;
 
 import static org.nms.App.VERTX;
 import static org.nms.api.HttpServer.jwtAuthHandler;
 import static org.nms.constants.Eventbus.EXECUTE_QUERY;
-import static org.nms.constants.Fields.ENDPOINTS.USER_ENDPOINT;
-import static org.nms.constants.Fields.User.*;
 import static org.nms.utils.ApiUtils.sendFailure;
 import static org.nms.utils.ApiUtils.sendSuccess;
 
-public class User implements BaseHandler
+public class User implements AbstractHandler
 {
     private static User instance;
 
@@ -39,54 +37,30 @@ public class User implements BaseHandler
         var userRouter = Router.router(VERTX);
 
         userRouter.get("/")
-                .handler((ctx) -> this.list(ctx, Database.Table.USER));
+                .handler((ctx) -> this.list(ctx, Database.Table.USER_PROFILE));
 
         userRouter.get("/:id")
                 .handler(jwtAuthHandler)
                 .handler(HttpServer::authenticate)
-                .handler((ctx) -> this.get(ctx, Database.Table.USER));
+                .handler((ctx) -> this.get(ctx, Database.Table.USER_PROFILE));
 
         userRouter.post("/login")
                 .handler(this::login);
 
         userRouter.post("/register")
-                .handler((ctx) -> this.insert(ctx, Database.Table.USER));
+                .handler((ctx) -> this.insert(ctx, Database.Table.USER_PROFILE));
 
         userRouter.patch("/:id")
                 .handler(jwtAuthHandler)
                 .handler(HttpServer::authenticate)
-                .handler((ctx) -> this.update(ctx, Database.Table.USER));
+                .handler((ctx) -> this.update(ctx, Database.Table.USER_PROFILE));
 
         userRouter.delete("/:id")
                 .handler(jwtAuthHandler)
                 .handler(HttpServer::authenticate)
-                .handler((ctx) -> this.delete(ctx, Database.Table.USER));
+                .handler((ctx) -> this.delete(ctx, Database.Table.USER_PROFILE));
 
-        router.route(USER_ENDPOINT).subRouter(userRouter);
-
-    }
-
-    @Override
-    public void beforeInsert(RoutingContext ctx)
-    {
-
-    }
-
-    @Override
-    public void afterInsert(JsonArray data)
-    {
-
-    }
-
-    @Override
-    public void beforeUpdate(RoutingContext ctx)
-    {
-
-    }
-
-    @Override
-    public void afterUpdate(JsonArray data)
-    {
+        router.route(Global.USER_ENDPOINT).subRouter(userRouter);
 
     }
 
@@ -97,19 +71,25 @@ public class User implements BaseHandler
 
         if (
                 Validators.validateInputFields(ctx, new String[]{
-                        NAME,
-                        PASSWORD
+                        Database.User.USERNAME,
+                        Database.User.PASSWORD
                 }, true)
         )  return;
 
-        var username = ctx.body().asJsonObject().getString(NAME);
+        var username = ctx.body().asJsonObject().getString(Database.User.USERNAME);
 
         var queryRequest = DbUtils.buildRequest(
-                Database.Table.USER,
+                Database.Table.USER_PROFILE,
                 Database.Operation.GET,
-                new JsonArray().add(new JsonObject().put(Fields.User.NAME, username)),
+                new JsonArray().add(
+                        new JsonObject()
+                                .put(Database.Common.COLUMN, Database.User.USERNAME)
+                                .put(Database.Common.VALUE, username)
+                ),
+                null,
                 null
         );
+
 
         VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
         {
@@ -124,9 +104,9 @@ public class User implements BaseHandler
                     return;
                 }
 
-                var password = ctx.body().asJsonObject().getString(PASSWORD);
+                var password = ctx.body().asJsonObject().getString(Database.User.PASSWORD);
 
-                if (!user.getJsonObject(0).getString(PASSWORD).equals(password))
+                if (!user.getJsonObject(0).getString(Database.User.PASSWORD).equals(password))
                 {
                     sendFailure(ctx, 401, "Invalid password");
 
@@ -137,10 +117,10 @@ public class User implements BaseHandler
                         .jwtAuth
                         .generateToken(
                                 new JsonObject()
-                                        .put(ID, user.getJsonObject(0).getInteger(ID))
+                                        .put(Database.User.ID, user.getJsonObject(0).getInteger(Database.User.ID))
                         );
 
-                user.getJsonObject(0).put(JWT_KEY, jwtToken);
+                user.getJsonObject(0).put(Database.User.JWT_KEY, jwtToken);
 
                 sendSuccess(ctx, 200, "User logged in", user);
             }

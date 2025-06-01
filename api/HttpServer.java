@@ -15,12 +15,12 @@ import org.nms.App;
 import static org.nms.App.LOGGER;
 import static org.nms.utils.ApiUtils.sendFailure;
 
-import org.nms.constants.Config;
+import org.nms.constants.Global;
 
 public class HttpServer extends AbstractVerticle
 {
     private static final JWTAuthOptions config = new JWTAuthOptions()
-                                                    .setKeyStore(new KeyStoreOptions().setPath(Config.KEYSTORE_PATH).setPassword(Config.JWT_SECRET));
+                                                    .setKeyStore(new KeyStoreOptions().setPath(Global.KEYSTORE_PATH).setPassword(Global.JWT_SECRET));
 
     public static final JWTAuth jwtAuth = JWTAuth.create(App.VERTX, config);
 
@@ -29,10 +29,8 @@ public class HttpServer extends AbstractVerticle
     @Override
     public void start(Promise<Void> startPromise)
     {
-        // ===== Configure HttpServer =====
         var server = vertx.createHttpServer(new HttpServerOptions().setReuseAddress(true));
 
-        // ===== Configure Routes ======
         var router = Router.router(vertx);
 
         router.route().handler(BodyHandler.create());
@@ -43,7 +41,6 @@ public class HttpServer extends AbstractVerticle
             ctx.next();
         });
 
-        // ===== Configure User Routes =====
         User.getInstance().init(router);
 
         router.route()
@@ -51,30 +48,21 @@ public class HttpServer extends AbstractVerticle
                 .handler(HttpServer::authenticate);
 
 
-        // ===== Configure Credential Routes =====
         Credential.getInstance().init(router);
 
-        // ===== Configure Discovery Routes =====
         Discovery.getInstance().init(router);
-        DiscoveryCredential.getInstance().init(router);
-        DiscoveryResult.getInstance().init(router);
 
-        // ===== Configure Provision Routes =====
         Monitor.getInstance().init(router);
-        Metric.getInstance().init(router);
 
-        // ===== Configure Result Routes =====
-        PollResult.getInstance().init(router);
+        PollingResult.getInstance().init(router);
 
-        // ===== Configure Router To Server =====
         server.requestHandler(router);
 
-        // ===== Listen on Port =====
-        server.listen(Config.HTTP_PORT, http ->
+        server.listen(Global.HTTP_PORT, http ->
         {
             if(http.succeeded())
             {
-                LOGGER.info("✅ HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("✅ HTTP Server Started On Port => " + Global.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }
@@ -90,7 +78,7 @@ public class HttpServer extends AbstractVerticle
     @Override
     public void stop()
     {
-        LOGGER.info("\uD83D\uDED1 Http Server Stopped");
+        LOGGER.info("Http Server Stopped");
     }
 
     public static void authenticate(RoutingContext ctx)
@@ -98,6 +86,7 @@ public class HttpServer extends AbstractVerticle
         if(ctx.user() == null || ctx.user().principal().isEmpty() || ctx.user().expired())
         {
             sendFailure(ctx, 401, "Please login to continue");
+
             return;
         }
 

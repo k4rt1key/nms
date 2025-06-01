@@ -1,6 +1,7 @@
 package org.nms.database;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
@@ -10,9 +11,11 @@ import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlClient;
 
 import static org.nms.App.LOGGER;
+import static org.nms.App.VERTX;
 import static org.nms.constants.Eventbus.EXECUTE_QUERY;
 
 import org.nms.constants.Database.*;
+import org.nms.utils.DbUtils;
 
 public class Database extends AbstractVerticle
 {
@@ -32,9 +35,24 @@ public class Database extends AbstractVerticle
 
             vertx.eventBus().localConsumer(EXECUTE_QUERY, this::execute);
 
-            LOGGER.info("Successfully deployed Database Verticle");
+            init()
+                    .onComplete(asyncResult ->
+                    {
+                        if(asyncResult.succeeded())
+                        {
+                            LOGGER.info("Successfully deployed Database Verticle");
 
-            startPromise.complete();
+                            startPromise.complete();
+                        }
+                        else
+                        {
+                            LOGGER.error("Failed to deploy database verticle, cause: " + asyncResult.cause().getMessage());
+
+                            startPromise.fail(asyncResult.cause().getMessage());
+                        }
+                    });
+
+
         }
         catch (Exception exception)
         {
@@ -73,6 +91,8 @@ public class Database extends AbstractVerticle
 
         var data = message.body().getJsonObject(Common.DATA);
 
+        var batchData = message.body().getJsonArray(Common.BATCH_DATA);
+
         QueryBuilder.SqlQuery sqlQuery = switch (operation)
         {
             case Operation.LIST -> QueryBuilder.buildSelectAll(tableName);
@@ -81,30 +101,59 @@ public class Database extends AbstractVerticle
 
             case Operation.INSERT -> QueryBuilder.buildInsert(tableName, data);
 
+            case Operation.BATCH_INSERT -> QueryBuilder.buildBatchInsert(tableName, batchData);
+
             case Operation.UPDATE -> QueryBuilder.buildUpdate(tableName, data, conditions);
 
             case Operation.DELETE -> QueryBuilder.buildDelete(tableName, conditions);
 
+            case Operation.CREATE_SCHEMA -> QueryBuilder.buildSchema(tableName);
+
             default -> QueryBuilder.buildDefault();
         };
 
-        dbClient.preparedQuery(sqlQuery.query)
+        if(operation.equals(Operation.BATCH_INSERT))
+        {
+            dbClient.preparedQuery(sqlQuery.query)
 
-                .execute(sqlQuery.parameters)
+                    .executeBatch(sqlQuery.batchParameters)
 
-                .map(this::toJsonArray)
+                    .map(this::toJsonArray)
 
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
+                    .onComplete(dbResult ->
                     {
-                        message.reply(dbResult.result());
-                    }
-                    else
+                        if (dbResult.succeeded())
+                        {
+                            message.reply(dbResult.result());
+                        } else
+                        {
+                            LOGGER.debug("Failed to execute Query " + sqlQuery.query + " Cause: " + dbResult.cause().getMessage());
+
+                            message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                        }
+                    });
+        }
+        else
+        {
+            dbClient.preparedQuery(sqlQuery.query)
+
+                    .execute(sqlQuery.parameters)
+
+                    .map(this::toJsonArray)
+
+                    .onComplete(dbResult ->
                     {
-                        message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
-                    }
-                });
+                        if (dbResult.succeeded())
+                        {
+                            message.reply(dbResult.result());
+                        } else
+                        {
+                            LOGGER.debug("Failed to execute Query " + sqlQuery.query + " Cause: " + dbResult.cause().getMessage());
+
+                            message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                        }
+                    });
+        }
     }
 
     private JsonArray toJsonArray(RowSet<Row> rows)
@@ -117,5 +166,18 @@ public class Database extends AbstractVerticle
         }
 
         return results;
+    }
+
+    private Future<Void> init()
+    {
+        return VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.USER_PROFILE, Operation.CREATE_SCHEMA, null, null, null))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.CREDENTIAL_PROFILE, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.DISCOVERY_PROFILE, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.DISCOVERY_CREDENTIAL, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.DISCOVERY_RESULT, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.MONITOR, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.METRIC, Operation.CREATE_SCHEMA, null, null, null)))
+                .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.POLLING_RESULT, Operation.CREATE_SCHEMA, null, null, null)))
+                .mapEmpty();
     }
 }
