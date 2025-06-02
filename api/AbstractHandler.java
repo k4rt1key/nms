@@ -1,18 +1,18 @@
 package org.nms.api;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.constants.DatabaseConstant;
-import org.nms.constants.EventbusAddress;
-import org.nms.database.QueryStore;
+import org.nms.App;
+import org.nms.constants.Database;
 import org.nms.utils.ApiUtils;
 import org.nms.utils.DbUtils;
-import org.nms.validators.Validators;
 
-import static org.nms.App.VERTX;
-
+import static org.nms.constants.Database.Common.*;
+import static org.nms.constants.Eventbus.*;
 
 public interface AbstractHandler
 {
@@ -20,71 +20,94 @@ public interface AbstractHandler
 
     default void list(RoutingContext ctx, String tableName)
     {
-        var query = QueryStore.getInstance().getQuery(tableName, DatabaseConstant.Operation.LIST);
+        var queryRequest = DbUtils.buildRequest (
+                tableName,
+                Database.Operation.LIST,
+                null,
+                null,
+                null
+        );
 
-        var dbRequest = DbUtils.buildRequest(query, null, DatabaseConstant.MODE_WITHOUT_DATA);
-
-        VERTX
-                .eventBus()
-                .<JsonArray>request(EventbusAddress.EXECUTE_QUERY, dbRequest)
-                .onComplete((dbResponse) ->
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
                 {
-                    if(dbResponse.succeeded())
-                    {
-                        if(dbResponse.result() == null || dbResponse.result().body().isEmpty())
-                        {
-                            ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
-                        }
-                        else
-                        {
-                            ApiUtils.sendSuccess(ctx, 200, "Successfully LIST " + tableName, dbResponse.result());
-                        }
-                    }
-                    else
-                    {
-                        ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to LIST " + tableName + " : " + dbResponse.cause().getMessage());
-                    }
-                });
+                    ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully LIST " + tableName, dbResponse.result().body());
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to LIST " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
     }
 
     default void get(RoutingContext ctx, String tableName)
     {
-        var id = Validators.validateID(ctx);
+        var params = ctx.pathParams();
 
-        if(id == -1) return;
+        var conditions = new JsonArray();
 
-        var query = QueryStore.getInstance().getQuery(tableName, DatabaseConstant.Operation.GET);
+        for(String key : params.keySet())
+        {
+            try
+            {
+                Integer.parseInt(params.get(key));
 
-        var dbRequest = DbUtils.buildRequest(query, new JsonArray().add(id), DatabaseConstant.MODE_WITHOUT_DATA);
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, Integer.parseInt(params.get(key))));
+            }
+            catch (Exception exception)
+            {
+                conditions.add(new JsonObject().put(COLUMN, key).put(VALUE, params.get(key)));
+            }
+        }
 
-        VERTX
-                .eventBus()
-                .<JsonArray>request(EventbusAddress.EXECUTE_QUERY, dbRequest)
-                .onComplete((dbResponse) ->
+
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.GET,
+                conditions,
+                null,
+                null
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
                 {
-                    if(dbResponse.succeeded())
-                    {
-                        if(dbResponse.result() == null || dbResponse.result().body().isEmpty())
-                        {
-                            ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
-                        }
-                        else
-                        {
-                            ApiUtils.sendSuccess(ctx, 200, "Successfully GET " + tableName, dbResponse.result().body());
-                        }
-                    }
-                    else
-                    {
-                        ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to GET " + tableName + " : " + dbResponse.cause().getMessage());
-                    }
-                });
+                    ApiUtils.sendSuccess(ctx, 200, "No Data Found", new JsonArray());
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, "Successfully GET " + tableName, dbResponse.result().body());
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", "Failed to GET " + tableName + " : " + dbResponse.cause().getMessage());
+            }
+        });
     }
 
     default void insert(RoutingContext ctx, String tableName)
     {
+        var queryRequest = DbUtils.buildRequest(
+                tableName,
+                Database.Operation.INSERT,
+                null,
+                ctx.body().asJsonObject(),
+                null
+        );
 
-
-        VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
         {
             if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
             {
@@ -126,7 +149,7 @@ public interface AbstractHandler
                 null
         );
 
-        VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
         {
             if(dbResponse.succeeded() && dbResponse.result().body() != null && !dbResponse.result().body().isEmpty())
             {
@@ -168,7 +191,7 @@ public interface AbstractHandler
                 null
         );
 
-        VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
+        App.VERTX.eventBus().<JsonArray>request(EXECUTE_QUERY, queryRequest, dbResponse ->
         {
             if(dbResponse.succeeded())
             {
