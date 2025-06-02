@@ -2,13 +2,22 @@ package org.nms.constants;
 
 public class Plugin
 {
+    public static class Common
+    {
+        public static final String TYPE = "type";
+
+        public static final String POLLING = "polling";
+
+        public static final String DISCOVERY = "discovery";
+    }
+
     public static class DiscoveryRequest
     {
         public static final String TYPE = "type";
 
         public static final String DISCOVERY = "discovery";
 
-        public static final String ID = "id";
+        public static final String DISCOVERY_PROFILE = "discovery_profile";
 
         public static final String PORT = "port";
 
@@ -19,11 +28,19 @@ public class Plugin
 
     public static class DiscoveryResponse
     {
-        public static final String ID = "id";
+        public static final String DISCOVERY_PROFILE = "discovery_profile";
 
         public static final String IP = "ip";
 
         public static final String CREDENTIALS = "credential";
+
+        public static final String MESSAGE = "message";
+
+        public static final String SUCCESS = "success";
+
+        public static final String FAILED = "failed";
+
+        public static final String STATUS = "status";
     }
 
     public static class PollingRequest

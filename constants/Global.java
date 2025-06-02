@@ -8,6 +8,8 @@ public class Global
 
     public static final String JWT_SECRET = "secret";
 
+    public static final String INDIA_ZONE_NAME = "Asia/Kolkata";
+
     public static final String PLUGIN_PATH = "src/main/plugin/nms-plugin-v2";
 
     public static final Integer HTTP_PORT = 8080;

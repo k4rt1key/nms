@@ -11,6 +11,8 @@ import org.nms.api.HttpServer;
 import org.nms.constants.Eventbus;
 import org.nms.constants.Global;
 import org.nms.database.Database;
+import org.nms.discovery.Discovery;
+import org.nms.plugin.PluginExecutor;
 
 
 public class App
@@ -27,6 +29,10 @@ public class App
         try
         {
             VERTX.deployVerticle(new Database())
+
+                    .compose(v -> VERTX.deployVerticle(new Discovery()))
+
+                    .compose(v -> VERTX.deployVerticle(new PluginExecutor()))
 
                     .compose(v -> VERTX.deployVerticle(new HttpServer()))
 

@@ -44,14 +44,17 @@ public class Discovery implements AbstractHandler
         discoveryRouter.get("/:discovery_profile/credential")
                 .handler(ctx -> this.get(ctx, Database.Table.DISCOVERY_CREDENTIAL));
 
+        discoveryRouter.get("/")
+                .handler(ctx -> this.list(ctx, Database.Table.DISCOVERY_PROFILE));
+
+        discoveryRouter.get("/result/:discovery_profile")
+                .handler(ctx -> this.get(ctx, Database.Table.DISCOVERY_RESULT));
+
         discoveryRouter.delete("/:discovery_profile/credential/:credential_profile")
                 .handler(ctx -> this.delete(ctx, Database.Table.DISCOVERY_CREDENTIAL));
 
         discoveryRouter.post("/credential")
                 .handler(ctx -> this.insert(ctx, Database.Table.DISCOVERY_CREDENTIAL));
-
-        discoveryRouter.get("/")
-                .handler(ctx -> this.list(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.post("/")
                 .handler(ctx -> this.insert(ctx, Database.Table.DISCOVERY_PROFILE));
@@ -149,7 +152,7 @@ public class Discovery implements AbstractHandler
 
         if(id == -1) ApiUtils.sendFailure(ctx, 400, "Please provide valid discovery id");
 
-        VERTX.eventBus().send(Eventbus.RUN_DISCOVERY, id);
+        VERTX.eventBus().send(Eventbus.RUN_DISCOVERY, new JsonObject().put(Database.Discovery.ID, id));
 
         ApiUtils.sendSuccess(ctx, 200, "Your discovery with id " + id + " is under process", new JsonArray());
     }

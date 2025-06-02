@@ -21,6 +21,11 @@ public class Database
         public static final String DATA = "data";
 
         public static final String BATCH_DATA = "batch.data";
+
+        public static final String SUCCESS = "success";
+
+        public static final String FAILED = "failed";
+
     }
 
     public static class Operation
@@ -198,9 +203,13 @@ public class Database
 
         public static final String CREDENTIAL_PROFILE = "credential_profile";
 
-        public static final String FAILED_STATUS = "FAILED";
+        public static final String IP = "ip";
 
-        public static final String COMPLETED_STATUS = "COMPLETED";
+        public static final String STATUS = "status";
+
+        public static final String FAILED = "FAILED";
+
+        public static final String SUCCESS = "SUCCESS";
 
         public static final String MESSAGE = "message";
 

@@ -35,24 +35,21 @@ public class Database extends AbstractVerticle
 
             vertx.eventBus().localConsumer(EXECUTE_QUERY, this::execute);
 
-            init()
-                    .onComplete(asyncResult ->
-                    {
-                        if(asyncResult.succeeded())
-                        {
-                            LOGGER.info("Successfully deployed Database Verticle");
+            initSchema().onComplete(asyncResult ->
+            {
+                if(asyncResult.succeeded())
+                {
+                    LOGGER.info("Successfully deployed Database Verticle");
 
-                            startPromise.complete();
-                        }
-                        else
-                        {
-                            LOGGER.error("Failed to deploy database verticle, cause: " + asyncResult.cause().getMessage());
+                    startPromise.complete();
+                }
+                else
+                {
+                    LOGGER.error("Failed to deploy database verticle, cause: " + asyncResult.cause().getMessage());
 
-                            startPromise.fail(asyncResult.cause().getMessage());
-                        }
-                    });
-
-
+                    startPromise.fail(asyncResult.cause().getMessage());
+                }
+            });
         }
         catch (Exception exception)
         {
@@ -63,9 +60,7 @@ public class Database extends AbstractVerticle
     @Override
     public void stop(Promise<Void> stopPromise)
     {
-        dbClient
-                .close()
-
+        dbClient.close()
                 .onComplete(asyncResult ->
                 {
                     if(asyncResult.succeeded())
@@ -115,42 +110,50 @@ public class Database extends AbstractVerticle
         if(operation.equals(Operation.BATCH_INSERT))
         {
             dbClient.preparedQuery(sqlQuery.query)
-
                     .executeBatch(sqlQuery.batchParameters)
-
                     .map(this::toJsonArray)
-
                     .onComplete(dbResult ->
                     {
                         if (dbResult.succeeded())
                         {
-                            message.reply(dbResult.result());
-                        } else
+                            if(message.replyAddress() != null && !message.replyAddress().isEmpty())
+                            {
+                                message.reply(dbResult.result());
+                            }
+                        }
+                        else
                         {
                             LOGGER.debug("Failed to execute Query " + sqlQuery.query + " Cause: " + dbResult.cause().getMessage());
 
-                            message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                            if(message.replyAddress() != null && !message.replyAddress().isEmpty())
+                            {
+                                message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                            }
                         }
                     });
         }
         else
         {
             dbClient.preparedQuery(sqlQuery.query)
-
                     .execute(sqlQuery.parameters)
-
                     .map(this::toJsonArray)
-
                     .onComplete(dbResult ->
                     {
                         if (dbResult.succeeded())
                         {
-                            message.reply(dbResult.result());
-                        } else
+                            if(message.replyAddress() != null && !message.replyAddress().isEmpty())
+                            {
+                                message.reply(dbResult.result());
+                            }
+                        }
+                        else
                         {
                             LOGGER.debug("Failed to execute Query " + sqlQuery.query + " Cause: " + dbResult.cause().getMessage());
 
-                            message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                            if(message.replyAddress() != null && !message.replyAddress().isEmpty())
+                            {
+                                message.fail(500, "Failed to execute " + operation + " operation on table " + tableName + " error => " + dbResult.cause().getMessage());
+                            }
                         }
                     });
         }
@@ -168,7 +171,7 @@ public class Database extends AbstractVerticle
         return results;
     }
 
-    private Future<Void> init()
+    private Future<Void> initSchema()
     {
         return VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.USER_PROFILE, Operation.CREATE_SCHEMA, null, null, null))
                 .compose(v -> VERTX.eventBus().request(EXECUTE_QUERY, DbUtils.buildRequest(Table.CREDENTIAL_PROFILE, Operation.CREATE_SCHEMA, null, null, null)))
