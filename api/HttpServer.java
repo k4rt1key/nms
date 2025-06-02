@@ -38,6 +38,7 @@ public class HttpServer extends AbstractVerticle
         router.route().handler(ctx ->
         {
             ctx.response().putHeader("Content-Type", "application/json");
+
             ctx.next();
         });
 
@@ -51,6 +52,8 @@ public class HttpServer extends AbstractVerticle
         Credential.getInstance().init(router);
 
         Discovery.getInstance().init(router);
+
+        DiscoveryCredential.getInstance().init(router);
 
         Monitor.getInstance().init(router);
 

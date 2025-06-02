@@ -52,6 +52,8 @@ public class Global
 
     public static final String DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
 
+    public static final String DISCOVERY_CREDENTIAL_ENDPOINT = "/api/v1/discovery-credential/*";
+
     public static final String RESULT_ENDPOINT = "/api/v1/result/*";
 
 }

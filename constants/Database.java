@@ -6,6 +6,8 @@ public class Database
     {
         public static final String ID = "id";
 
+        public static final String STATUS = "status";
+
         public static final String OPERATION = "operation";
 
         public static final String COLUMN = "column";

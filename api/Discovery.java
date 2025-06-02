@@ -18,11 +18,14 @@ public class Discovery implements AbstractHandler
 {
     private static Discovery instance;
 
-    private Discovery(){}
+    private Discovery()
+    {
+
+    }
 
     public static Discovery getInstance()
     {
-        if(instance == null)
+        if (instance == null)
         {
             instance = new Discovery();
         }
@@ -36,22 +39,31 @@ public class Discovery implements AbstractHandler
         var discoveryRouter = Router.router(VERTX);
 
         discoveryRouter.get("/:id")
-                .handler((ctx) -> this.get(ctx, Database.Table.DISCOVERY_PROFILE));
+                .handler(ctx -> this.get(ctx, Database.Table.DISCOVERY_PROFILE));
 
-        discoveryRouter.get("/credential/:discovery_profile")
-                .handler((ctx) -> this.get(ctx, Database.Table.DISCOVERY_CREDENTIAL));
+        discoveryRouter.get("/:discovery_profile/credential")
+                .handler(ctx -> this.get(ctx, Database.Table.DISCOVERY_CREDENTIAL));
+
+        discoveryRouter.delete("/:discovery_profile/credential/:credential_profile")
+                .handler(ctx -> this.delete(ctx, Database.Table.DISCOVERY_CREDENTIAL));
+
+        discoveryRouter.post("/credential")
+                .handler(ctx -> this.insert(ctx, Database.Table.DISCOVERY_CREDENTIAL));
 
         discoveryRouter.get("/")
-                .handler((ctx) -> this.list(ctx, Database.Table.DISCOVERY_PROFILE));
+                .handler(ctx -> this.list(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.post("/")
-                .handler((ctx) -> this.insert(ctx, Database.Table.DISCOVERY_PROFILE));
+                .handler(ctx -> this.insert(ctx, Database.Table.DISCOVERY_PROFILE));
+
+        discoveryRouter.post("/run/:id")
+                .handler(this::run);
 
         discoveryRouter.patch("/:id")
-                .handler((ctx) -> this.update(ctx, Database.Table.DISCOVERY_PROFILE));
+                .handler(ctx -> this.updateDiscovery(ctx, Database.Table.DISCOVERY_PROFILE));
 
         discoveryRouter.delete("/:id")
-                .handler((ctx) -> this.delete(ctx, Database.Table.DISCOVERY_PROFILE));
+                .handler(ctx -> this.delete(ctx, Database.Table.DISCOVERY_PROFILE));
 
         router.route(Global.DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
     }
@@ -59,11 +71,11 @@ public class Discovery implements AbstractHandler
     @Override
     public void insert(RoutingContext ctx, String tableName)
     {
-        if(validateCreateDiscovery(ctx)) { return; }
+        if (isInvalidDiscoveryInsertRequest(ctx)) return;
 
         var requestBody = ctx.body().asJsonObject();
 
-        var discoveryData = new JsonObject()
+        var discoveryRecord = new JsonObject()
                 .put(Database.Discovery.IP, requestBody.getString(Database.Discovery.IP))
                 .put(Database.Discovery.IP_TYPE, requestBody.getString(Database.Discovery.IP_TYPE))
                 .put(Database.Discovery.NAME, requestBody.getString(Database.Discovery.NAME))
@@ -73,20 +85,20 @@ public class Discovery implements AbstractHandler
                 Database.Table.DISCOVERY_PROFILE,
                 Database.Operation.INSERT,
                 null,
-                discoveryData,
+                discoveryRecord,
                 null
         );
 
-        VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, discoveryInsertRequest, discoveryInsertResult ->
+        VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, discoveryInsertRequest, discoveryInsertReply ->
         {
-            if(discoveryInsertResult.failed())
+            if (discoveryInsertReply.failed())
             {
-                ApiUtils.sendFailure(ctx, 500, "Something went wrong","Failed to INSERT discovery, Cause: " + discoveryInsertResult.cause().getMessage());
+                ApiUtils.sendFailure(ctx, 500, "Something went wrong","Failed to INSERT discovery. Cause: " + discoveryInsertReply.cause().getMessage());
 
                 return;
             }
 
-            var insertedDiscovery = discoveryInsertResult.result().body().getJsonObject(0);
+            var insertedDiscovery = discoveryInsertReply.result().body().getJsonObject(0);
 
             var discoveryId = insertedDiscovery.getInteger(Database.Discovery.ID);
 
@@ -109,66 +121,82 @@ public class Discovery implements AbstractHandler
                     discoveryCredentialRecords
             );
 
-            VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, credentialInsertRequest, credentialInsertResult ->
+            VERTX.eventBus().<JsonArray>request(Eventbus.EXECUTE_QUERY, credentialInsertRequest, credentialInsertReply ->
             {
-                if(credentialInsertResult.failed())
+                if (credentialInsertReply.failed())
                 {
-                    ApiUtils.sendFailure(ctx, 500, "Something went wrong","Failed to INSERT discovery-credential, Cause: " + discoveryInsertResult.cause().getMessage());
+                    ApiUtils.sendFailure(ctx, 500, "Something went wrong",
+                            "Failed to INSERT discovery-credentials. Cause: " + credentialInsertReply.cause().getMessage());
 
                     return;
                 }
 
-                var insertedCredentials = credentialInsertResult.result().body();
-
-                insertedDiscovery.put(Database.DiscoveryCredential.CREDENTIAL_PROFILE, insertedCredentials);
-
-                var responseArray = new JsonArray().add(insertedDiscovery);
-
-                ApiUtils.sendSuccess(ctx, 201, "Successfully INSERT discovery", responseArray);
-
+                ApiUtils.sendSuccess(ctx, 201, "Successfully inserted discovery", new JsonArray().add(new JsonObject().put(Database.Discovery.ID, discoveryId)));
             });
         });
     }
 
-    private boolean validateCreateDiscovery(RoutingContext ctx)
+    public void updateDiscovery(RoutingContext ctx, String tableName)
     {
+        if (isInvalidDiscoveryUpdateRequest(ctx)) return;
 
-        if(Validators.validateBody(ctx))  return true;
+        this.update(ctx, tableName);
+    }
 
-        if(Validators.validateInputFields(ctx, new String[]
-                {
-                        Database.Discovery.IP,
-                        Database.Discovery.IP_TYPE,
-                        Database.Discovery.NAME,
-                        Database.Discovery.PORT,
-                }, true)) { return true; }
+    public void run(RoutingContext ctx)
+    {
+        var id = Validators.validateID(ctx);
 
-        var body = ctx.body().asJsonObject();
+        if(id == -1) ApiUtils.sendFailure(ctx, 400, "Please provide valid discovery id");
 
-        var credentials = body.getJsonArray(Database.DiscoveryCredential.CREDENTIAL_PROFILE);
+        VERTX.eventBus().send(Eventbus.RUN_DISCOVERY, id);
 
-        if (credentials == null || credentials.isEmpty())
+        ApiUtils.sendSuccess(ctx, 200, "Your discovery with id " + id + " is under process", new JsonArray());
+    }
+
+    /**
+     * Helper method to validate discovery creation request
+     * @param ctx Routing context
+     * @return true if invalid
+     */
+    private boolean isInvalidDiscoveryInsertRequest(RoutingContext ctx)
+    {
+        if (Validators.validateBody(ctx)) return true;
+
+        var requiredFields = new String[]{
+                Database.Discovery.IP,
+                Database.Discovery.IP_TYPE,
+                Database.Discovery.NAME,
+                Database.Discovery.PORT,
+        };
+
+        if (Validators.validateInputFields(ctx, requiredFields, true)) return true;
+
+        var requestBody = ctx.body().asJsonObject();
+
+        var credentialIds = requestBody.getJsonArray(Database.DiscoveryCredential.CREDENTIAL_PROFILE);
+
+        if (credentialIds == null || credentialIds.isEmpty())
         {
             ApiUtils.sendFailure(ctx, 400, "Missing or empty 'credentials' field");
 
             return true;
         }
 
-        for (var credential : credentials)
+        for (var credentialId : credentialIds)
         {
             try
             {
-                Integer.parseInt(credential.toString());
+                Integer.parseInt(credentialId.toString());
             }
-            catch (NumberFormatException exception)
+            catch (NumberFormatException ex)
             {
-                ApiUtils.sendFailure(ctx, 400, "Invalid credential ID: " + credential);
-
+                ApiUtils.sendFailure(ctx, 400, "Invalid credential ID: " + credentialId);
                 return true;
             }
         }
 
-        var port = body.getInteger(Database.Discovery.PORT);
+        var port = requestBody.getInteger(Database.Discovery.PORT);
 
         if (port < 1 || port > 65535)
         {
@@ -177,7 +205,7 @@ public class Discovery implements AbstractHandler
             return true;
         }
 
-        var ipType = body.getString(Database.Discovery.IP_TYPE);
+        var ipType = requestBody.getString(Database.Discovery.IP_TYPE);
 
         if (!ipType.equals("SINGLE") && !ipType.equals("RANGE") && !ipType.equals("CIDR"))
         {
@@ -186,9 +214,49 @@ public class Discovery implements AbstractHandler
             return true;
         }
 
-        var ip = body.getString(Database.Discovery.IP);
+        var ip = requestBody.getString(Database.Discovery.IP);
 
         if (Validators.validateIpWithIpType(ip, ipType))
+        {
+            ApiUtils.sendFailure(ctx, 400, "Invalid IP or mismatch between IP and type: " + ip + ", " + ipType);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Helper method to validate discovery updation request
+     * @param ctx Routing context
+     * @return true if invalid
+     */
+    private boolean isInvalidDiscoveryUpdateRequest(RoutingContext ctx)
+    {
+        if(Validators.validateBody(ctx)) { return true; }
+
+        if(Validators.validateInputFields(ctx, new String[]
+                {
+                        Database.Discovery.IP,
+                        Database.Discovery.IP_TYPE,
+                        Database.Discovery.NAME,
+                        Database.Discovery.PORT
+                }, false)) { return true; }
+
+        if(! Validators.validatePort(ctx)) { return true; }
+
+        var ipType = ctx.body().asJsonObject().getString(Database.Discovery.IP_TYPE);
+
+        if (ipType != null && !ipType.equals("SINGLE") && !ipType.equals("RANGE") && !ipType.equals("CIDR"))
+        {
+            ApiUtils.sendFailure(ctx, 400, "Invalid IP type. Only 'SINGLE', 'RANGE' and 'CIDR' are supported");
+
+            return true;
+        }
+
+        var ip = ctx.body().asJsonObject().getString(Database.Discovery.IP);
+
+        if (ip != null && ipType != null && Validators.validateIpWithIpType(ip, ipType))
         {
             ApiUtils.sendFailure(ctx, 400, "Invalid IP address or mismatch Ip and IpType: " + ip + ", " + ipType);
 
@@ -197,5 +265,4 @@ public class Discovery implements AbstractHandler
 
         return false;
     }
-
 }

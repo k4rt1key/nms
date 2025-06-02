@@ -153,7 +153,7 @@ public class QueryBuilder
 
         for (String key : data.fieldNames())
         {
-            if(key.equals(ID)) continue;
+            if(key.equals(ID) || key.equals(STATUS)) continue;
 
             updates.add(key + " = COALESCE($" + index++ + ", " + key + ")");
 
