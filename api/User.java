@@ -6,8 +6,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import org.nms.validators.Validators;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 import static org.nms.App.VERTX;
@@ -67,7 +66,7 @@ public class User implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        DbUtils.execute(Queries.User.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.User.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -95,7 +94,7 @@ public class User implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -127,7 +126,7 @@ public class User implements BaseHandler
                         Fields.User.PASSWORD}, true)
         ) { return; }
 
-        DbUtils.execute(Queries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
+        DbUtils.execute(DatabaseQueries.User.GET_BY_NAME, new JsonArray().add(ctx.body().asJsonObject().getString("name")))
 
                 .compose(user ->
                 {
@@ -143,7 +142,7 @@ public class User implements BaseHandler
 
                 .compose(useExist ->
 
-                    DbUtils.execute(Queries.User.INSERT, new JsonArray()
+                    DbUtils.execute(DatabaseQueries.User.INSERT, new JsonArray()
                             .add(ctx.body().asJsonObject().getString("name"))
                             .add(ctx.body().asJsonObject().getString("password"))
                     ))
@@ -188,7 +187,7 @@ public class User implements BaseHandler
 
         var username = ctx.body().asJsonObject().getString("name");
 
-        DbUtils.execute(Queries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.User.GET_BY_NAME, new JsonArray().add(username)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -243,7 +242,7 @@ public class User implements BaseHandler
 
         var password = ctx.body().asJsonObject().getString("password");
 
-        DbUtils.execute(Queries.User.UPDATE, new JsonArray()
+        DbUtils.execute(DatabaseQueries.User.UPDATE, new JsonArray()
                 .add(id)
                 .add(username)
                 .add(password)
@@ -269,7 +268,7 @@ public class User implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.User.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -291,7 +290,7 @@ public class User implements BaseHandler
                     return;
                 }
 
-                DbUtils.execute(Queries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
+                DbUtils.execute(DatabaseQueries.User.DELETE, new JsonArray().add(id)).onComplete(userDeletion ->
                 {
                     if (userDeletion.succeeded())
                     {

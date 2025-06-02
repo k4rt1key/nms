@@ -11,9 +11,8 @@ import io.vertx.core.net.NetClientOptions;
 import io.vertx.sqlclient.Tuple;
 import org.nms.App;
 import org.nms.validators.Validators;
-import org.nms.constants.Config;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.Configuration;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 import java.io.BufferedReader;
@@ -59,7 +58,7 @@ public class Discovery extends AbstractVerticle
 
                          updateDiscoveryStatus(id, RUNNING_STATUS)
 
-                        .compose(v -> DbUtils.execute(Queries.Discovery.DELETE_RESULT, new JsonArray().add(id)))
+                        .compose(v -> DbUtils.execute(DatabaseQueries.Discovery.DELETE_RESULT, new JsonArray().add(id)))
 
                         .compose(v -> executeDiscovery(id, discovery)))
 
@@ -118,7 +117,7 @@ public class Discovery extends AbstractVerticle
 
     private Future<JsonObject> fetchDiscoveryDetails(int id)
     {
-        return DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id))
+        return DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id))
 
                 .compose(results -> results.isEmpty() ?
 
@@ -129,7 +128,7 @@ public class Discovery extends AbstractVerticle
 
     private Future<Void> updateDiscoveryStatus(int id, String status)
     {
-        return DbUtils.execute(Queries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add(status))
+        return DbUtils.execute(DatabaseQueries.Discovery.UPDATE_STATUS, new JsonArray().add(id).add(status))
                 .mapEmpty();
     }
 
@@ -174,7 +173,7 @@ public class Discovery extends AbstractVerticle
 
                 Future.succeededFuture(passedIps) :
 
-                DbUtils.execute(Queries.Discovery.INSERT_RESULT, failedTuples)
+                DbUtils.execute(DatabaseQueries.Discovery.INSERT_RESULT, failedTuples)
 
                         .map(v -> passedIps);
     }
@@ -210,12 +209,12 @@ public class Discovery extends AbstractVerticle
 
         if (!failedTuples.isEmpty())
         {
-            futures.add(DbUtils.execute(Queries.Discovery.INSERT_RESULT, failedTuples));
+            futures.add(DbUtils.execute(DatabaseQueries.Discovery.INSERT_RESULT, failedTuples));
         }
 
         if (!successTuples.isEmpty())
         {
-            futures.add(DbUtils.execute(Queries.Discovery.INSERT_RESULT, successTuples));
+            futures.add(DbUtils.execute(DatabaseQueries.Discovery.INSERT_RESULT, successTuples));
         }
 
         return futures.isEmpty() ? Future.succeededFuture() :
@@ -296,8 +295,8 @@ public class Discovery extends AbstractVerticle
             {
                 process = new ProcessBuilder(command).redirectErrorStream(true).start();
 
-                boolean completed = process.waitFor(Config.BASE_TIME +
-                        ((long) Config.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
+                boolean completed = process.waitFor(Configuration.BASE_TIME +
+                        ((long) Configuration.DISCOVERY_TIMEOUT_PER_IP * ips.size()), TimeUnit.SECONDS);
 
                 if (!completed)
                 {
@@ -392,7 +391,7 @@ public class Discovery extends AbstractVerticle
 
             var result = new JsonObject().put(IP, ip.toString()).put(PORT, port);
 
-            App.VERTX.createNetClient(new NetClientOptions().setConnectTimeout(Config.PORT_TIMEOUT * 1000))
+            App.VERTX.createNetClient(new NetClientOptions().setConnectTimeout(Configuration.PORT_TIMEOUT * 1000))
                     .connect(port, ip.toString(), ar ->
                     {
                         if (ar.succeeded())

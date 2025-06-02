@@ -1,6 +1,6 @@
 package org.nms.constants;
 
-public class Config
+public class Configuration
 {
     public static final Boolean PRODUCTION = false;
 

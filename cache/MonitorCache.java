@@ -9,8 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.nms.App.LOGGER;
 
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 public class MonitorCache implements AbstractCache
@@ -38,7 +37,7 @@ public class MonitorCache implements AbstractCache
     {
         try
         {
-            return DbUtils.execute(Queries.Monitor.GET_ALL)
+            return DbUtils.execute(DatabaseQueries.Monitor.GET_ALL)
 
                     .onComplete(monitorArrayResult ->
                     {

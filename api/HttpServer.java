@@ -15,12 +15,12 @@ import org.nms.App;
 import static org.nms.App.LOGGER;
 import static org.nms.utils.ApiUtils.sendFailure;
 
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 
 public class HttpServer extends AbstractVerticle
 {
     private static final JWTAuthOptions config = new JWTAuthOptions()
-                                                    .setKeyStore(new KeyStoreOptions().setPath(Config.KEYSTORE_PATH).setPassword(Config.JWT_SECRET));
+                                                    .setKeyStore(new KeyStoreOptions().setPath(Configuration.KEYSTORE_PATH).setPassword(Configuration.JWT_SECRET));
 
     public static final JWTAuth jwtAuth = JWTAuth.create(App.VERTX, config);
 
@@ -67,11 +67,11 @@ public class HttpServer extends AbstractVerticle
         server.requestHandler(router);
 
         // ===== Listen on Port =====
-        server.listen(Config.HTTP_PORT, asyncResult ->
+        server.listen(Configuration.HTTP_PORT, asyncResult ->
         {
             if(asyncResult.succeeded())
             {
-                LOGGER.info("HTTP Server Started On Port => " + Config.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("HTTP Server Started On Port => " + Configuration.HTTP_PORT + " On Thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }

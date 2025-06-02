@@ -6,8 +6,7 @@
     import io.vertx.core.json.JsonObject;
 
     import static org.nms.App.LOGGER;
-    import org.nms.constants.Config;
-    import org.nms.constants.Fields;
+    import org.nms.constants.Configuration;
 
     import java.io.BufferedReader;
     import java.io.InputStreamReader;
@@ -50,7 +49,7 @@
                     var encodedRequest = request.encode();
 
                     // Prepare go command
-                    var goCommand = new String[] {Config.PLUGIN_PATH, encodedRequest};
+                    var goCommand = new String[] {Configuration.PLUGIN_PATH, encodedRequest};
 
                     LOGGER.debug("Spawning plugin with request: " + encodedRequest);
 
@@ -123,7 +122,7 @@
 
                 var ipsCount = (ips != null) ? ips.size() : 0;
 
-                return Config.BASE_TIME + (ipsCount * Config.DISCOVERY_TIMEOUT_PER_IP);
+                return Configuration.BASE_TIME + (ipsCount * Configuration.DISCOVERY_TIMEOUT_PER_IP);
             }
 
             // Calculate timeout for polling
@@ -133,10 +132,10 @@
 
                 var metricGroupCount = (metricGroups != null) ? metricGroups.size() : 0;
 
-                return Config.BASE_TIME + (metricGroupCount * Config.POLLING_TIMEOUT_PER_METRIC_GROUP);
+                return Configuration.BASE_TIME + (metricGroupCount * Configuration.POLLING_TIMEOUT_PER_METRIC_GROUP);
             }
 
             // Default timeout
-            return Config.BASE_TIME;
+            return Configuration.BASE_TIME;
         }
     }

@@ -3,7 +3,7 @@ package org.nms.utils;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 
 public class ApiUtils
 {
@@ -46,7 +46,7 @@ public class ApiUtils
                 .put("success", false)
                 .put("statusCode", statusCode)
                 .put("message", message)
-                .put("error", Config.PRODUCTION ? message : error);
+                .put("error", Configuration.PRODUCTION ? message : error);
 
         response.end(json.toBuffer());
     }

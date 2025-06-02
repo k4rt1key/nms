@@ -1,7 +1,6 @@
 package org.nms.database;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
@@ -10,16 +9,18 @@ import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlClient;
 import io.vertx.sqlclient.Tuple;
+
 import static org.nms.App.LOGGER;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
-import org.nms.utils.DbUtils;
+
+import org.nms.constants.DatabaseConstant;
+import org.nms.constants.EventbusAddress;
+import org.nms.constants.Messages;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class Database extends AbstractVerticle
 {
+
     private SqlClient dbClient;
 
     @Override
@@ -32,153 +33,108 @@ public class Database extends AbstractVerticle
             if (dbClient == null)
             {
                 startPromise.fail("❌ SqlClient is null");
+
+                return;
             }
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_ADDRESS, this::execute);
+            vertx.eventBus().localConsumer(EventbusAddress.EXECUTE_QUERY, this::handleQuery);
 
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_WITH_PARAMS_ADDRESS, this::executeWithParams);
-
-            vertx.eventBus().localConsumer(Fields.EventBus.EXECUTE_SQL_QUERY_BATCH_ADDRESS, this::executeBatch);
-
-            // TODO: foreign key problem
-            Future.join(List.of(
-                    DbUtils.execute(Queries.User.CREATE_SCHEMA),
-                    DbUtils.execute(Queries.Credential.CREATE_SCHEMA),
-                    DbUtils.execute(Queries.Discovery.CREATE_SCHEMA),
-                    DbUtils.execute(Queries.Discovery.CREATE_DISCOVERY_CREDENTIAL_SCHEMA),
-                    DbUtils.execute(Queries.Discovery.CREATE_DISCOVERY_RESULT_SCHEMA),
-                    DbUtils.execute(Queries.Monitor.CREATE_SCHEMA),
-                    DbUtils.execute(Queries.Monitor.CREATE_METRIC_GROUP_SCHEMA),
-                    DbUtils.execute(Queries.PollingResult.CREATE_SCHEMA)
-            )).onComplete(allSchemasCreated ->
-            {
-                if(allSchemasCreated.succeeded())
-                {
-                    LOGGER.info("✅ Successfully deployed Database Verticle");
-
-                    startPromise.complete();
-                }
-                else
-                {
-                    LOGGER.warn("⚠ Something went wrong creating db schema");
-                }
-            });
+            startPromise.complete();
         }
         catch (Exception exception)
         {
-            startPromise.fail("❌ Failed to deploy database, error => " + exception.getMessage());
+            startPromise.fail(String.format(Messages.VERTICLE_DEPLOY_FAILED, "Database"));
         }
     }
 
     @Override
     public void stop(Promise<Void> stopPromise)
     {
-        dbClient
-                .close()
-                .onComplete(clientClose ->
+        dbClient.close()
+                .onComplete(result ->
                 {
-                    if(clientClose.succeeded())
+                    if (result.succeeded())
                     {
-                        LOGGER.info("\uD83D\uDED1 Database Verticle Stopped");
+                        LOGGER.info(String.format(Messages.VERTICLE_UNDEPLOYED, "Database"));
 
                         stopPromise.complete();
                     }
                     else
                     {
-                        stopPromise.fail("❌ Failed to close database connection, error => " + clientClose.cause().getMessage());
+                        stopPromise.fail(String.format(Messages.FAILURE_UNDEPLOYING_VERTICLE, result.cause().getMessage()));
                     }
                 });
     }
 
-    private void execute(Message<String> message)
+    private void handleQuery(Message<JsonObject> message)
     {
-        var query = message.body();
+        JsonObject request = message.body();
 
-        dbClient.preparedQuery(query)
+        String query = request.getString(DatabaseConstant.QUERY);
 
-                .execute()
+        String mode = request.getString(DatabaseConstant.MODE);
 
-                .map(this::toJsonArray)
-
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
-                    {
-                        message.reply(dbResult.result());
-                    }
-                    else
-                    {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
-                    }
-                });
-    }
-
-    private void executeWithParams(Message<JsonObject> message)
-    {
-        var request = message.body();
-
-        var query = request.getString("query");
-
-        var params = request.getJsonArray("params");
-
-        dbClient.preparedQuery(query)
-
-                .execute(Tuple.wrap(params.getList().toArray()))
-
-                .map(this::toJsonArray)
-
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
-                    {
-                        message.reply(dbResult.result());
-                    }
-                    else
-                    {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
-                    }
-                });
-    }
-
-    private void executeBatch(Message<JsonObject> message)
-    {
-        var request = message.body();
-
-        var query = request.getString("query");
-
-        var paramsArray = request.getJsonArray("params");
-
-        var tuples = new ArrayList<Tuple>();
-
-        for (int i = 0; i < paramsArray.size(); i++)
+        switch (mode)
         {
-            var params = paramsArray.getJsonArray(i);
+            case DatabaseConstant.MODE_SINGLE -> executeSingle(query, request.getJsonArray(DatabaseConstant.DATA), message);
 
-            tuples.add(Tuple.wrap(params.getList().toArray()));
+            case DatabaseConstant.MODE_BATCH -> executeBatch(query, request.getJsonArray(DatabaseConstant.BATCH_DATA), message);
+
+            default -> executeSimple(query, message);
         }
+    }
 
-        dbClient.preparedQuery(query)
-
-                .executeBatch(tuples)
-
+    private void executeSingle(String query, JsonArray data, Message<JsonObject> message)
+    {
+        dbClient
+                .preparedQuery(query)
+                .execute(Tuple.wrap(data.getList().toArray()))
                 .map(this::toJsonArray)
+                .onComplete(result -> handleResult(result, message, query, data.encode()));
+    }
 
-                .onComplete(dbResult ->
-                {
-                    if(dbResult.succeeded())
-                    {
-                        message.reply(dbResult.result());
-                    }
-                    else
-                    {
-                        message.fail(500, "❌ Failed to execute...\n" + query + "\nerror => " + dbResult.cause().getMessage());
-                    }
-                });
+    private void executeBatch(String query, JsonArray batchData, Message<JsonObject> message)
+    {
+        ArrayList<Tuple> tuples = new ArrayList<>();
+
+        batchData.forEach(item ->
+        {
+            JsonArray row = (JsonArray) item;
+
+            tuples.add(Tuple.from(row.getList().toArray()));
+        });
+
+        dbClient
+                .preparedQuery(query)
+                .executeBatch(tuples)
+                .map(this::toJsonArray)
+                .onComplete(result -> handleResult(result, message, query, batchData.encode()));
+    }
+
+    private void executeSimple(String query, Message<JsonObject> message)
+    {
+        dbClient
+                .preparedQuery(query)
+                .execute()
+                .map(this::toJsonArray)
+                .onComplete(result -> handleResult(result, message, query, "[]"));
+    }
+
+    private void handleResult(io.vertx.core.AsyncResult<JsonArray> result, Message<JsonObject> message, String query, String input)
+    {
+        if (result.succeeded() && message.replyAddress() != null && !message.replyAddress().isEmpty())
+        {
+            message.reply(result.result());
+        }
+        else if (result.failed())
+        {
+            message.fail(500, String.format(Messages.FAILURE_EXECUTING_QUERY, query, input, result.cause().getMessage()));
+        }
     }
 
     private JsonArray toJsonArray(RowSet<Row> rows)
     {
-        var results = new JsonArray();
+        JsonArray results = new JsonArray();
 
         for (Row row : rows)
         {

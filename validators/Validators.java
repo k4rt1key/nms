@@ -2,7 +2,7 @@ package org.nms.validators;
 
 import inet.ipaddr.IPAddressString;
 import io.vertx.ext.web.RoutingContext;
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 
 import static org.nms.App.LOGGER;
 import static org.nms.utils.ApiUtils.sendFailure;
@@ -171,7 +171,7 @@ public class Validators
 
                     var range = startIp.toSequentialRange(endIp);
 
-                    return ! ( range.getCount().longValue() <= Config.MAX_IP_COUNT );
+                    return ! ( range.getCount().longValue() <= Configuration.MAX_IP_COUNT );
 
                 case "CIDR":
 
@@ -187,7 +187,7 @@ public class Validators
                         return true;
                     }
 
-                    return ! ( cidr.getCount().longValue() <= Config.MAX_IP_COUNT );
+                    return ! ( cidr.getCount().longValue() <= Configuration.MAX_IP_COUNT );
 
                 default:
 

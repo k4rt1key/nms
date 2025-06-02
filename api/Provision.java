@@ -16,10 +16,9 @@ import static org.nms.constants.Fields.PluginPollingRequest.METRIC_GROUPS;
 
 import org.nms.App;
 import org.nms.cache.MonitorCache;
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 import org.nms.validators.Validators;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 import java.util.ArrayList;
@@ -70,7 +69,7 @@ public class Provision implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        DbUtils.execute(Queries.Monitor.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Monitor.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -98,7 +97,7 @@ public class Provision implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -129,7 +128,7 @@ public class Provision implements BaseHandler
 
         var ips = ctx.body().asJsonObject().getJsonArray(IPS);
 
-        DbUtils.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(Integer.parseInt(discoveryId))).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(Integer.parseInt(discoveryId))).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -157,7 +156,7 @@ public class Provision implements BaseHandler
                 {
                     for (var j = 0; j < ips.size(); j++)
                     {
-                        addMonitorsFuture.add(DbUtils.execute(Queries.Monitor.INSERT, new JsonArray().add(Integer.parseInt(discoveryId)).add(ips.getString(j))));
+                        addMonitorsFuture.add(DbUtils.execute(DatabaseQueries.Monitor.INSERT, new JsonArray().add(Integer.parseInt(discoveryId)).add(ips.getString(j))));
                     }
 
                     var joinFuture = CompositeFuture.join(addMonitorsFuture);
@@ -215,7 +214,7 @@ public class Provision implements BaseHandler
 
         if( id == -1 ){ return; }
 
-        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -228,7 +227,7 @@ public class Provision implements BaseHandler
                     return;
                 }
 
-                DbUtils.execute(Queries.Monitor.DELETE, new JsonArray().add(id)).onComplete(monitorDeletion ->
+                DbUtils.execute(DatabaseQueries.Monitor.DELETE, new JsonArray().add(id)).onComplete(monitorDeletion ->
                 {
                     if (monitorDeletion.succeeded())
                     {
@@ -267,7 +266,7 @@ public class Provision implements BaseHandler
 
         var metrics = ctx.body().asJsonObject().getJsonArray(METRIC_GROUPS);
 
-        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id))
+        DbUtils.execute(DatabaseQueries.Monitor.GET_BY_ID, new JsonArray().add(id))
                 .compose(monitor ->
                 {
                     if (monitor.isEmpty())
@@ -287,7 +286,7 @@ public class Provision implements BaseHandler
 
                         var isEnabled = metrics.getJsonObject(i).getBoolean(Fields.MetricGroup.IS_ENABLED);
 
-                        updateMetricGroupsFuture.add(DbUtils.execute(Queries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
+                        updateMetricGroupsFuture.add(DbUtils.execute(DatabaseQueries.Monitor.UPDATE, new JsonArray().add(id).add(pollingInterval).add(name).add(isEnabled)));
                     }
 
                     return Future.join(updateMetricGroupsFuture);
@@ -296,7 +295,7 @@ public class Provision implements BaseHandler
                 {
                     if (asyncResult.succeeded())
                     {
-                        DbUtils.execute(Queries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(monitorResult ->
+                        DbUtils.execute(DatabaseQueries.Monitor.GET_BY_ID, new JsonArray().add(id)).onComplete(monitorResult ->
                         {
                             if (monitorResult.succeeded())
                             {
@@ -411,9 +410,9 @@ public class Provision implements BaseHandler
                     return true;
                 }
 
-                if( ( (interval == null || interval < Config.SCHEDULER_CHECKING_INTERVAL || interval % Config.SCHEDULER_CHECKING_INTERVAL != 0) & enable == null ) )
+                if( ( (interval == null || interval < Configuration.SCHEDULER_CHECKING_INTERVAL || interval % Configuration.SCHEDULER_CHECKING_INTERVAL != 0) & enable == null ) )
                 {
-                    sendFailure(ctx, 400,"Provide Polling Interval ( Multiple of " + Config.SCHEDULER_CHECKING_INTERVAL + " ) Or Enable ( true or false )");
+                    sendFailure(ctx, 400,"Provide Polling Interval ( Multiple of " + Configuration.SCHEDULER_CHECKING_INTERVAL + " ) Or Enable ( true or false )");
 
                     return true;
                 }

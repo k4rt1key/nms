@@ -5,7 +5,7 @@ import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.sqlclient.PoolOptions;
 import io.vertx.sqlclient.SqlClient;
 import org.nms.App;
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 
 public class PgClient
 {
@@ -16,13 +16,13 @@ public class PgClient
     private PgClient()
     {
         var connectOptions = new PgConnectOptions()
-                .setPort(Config.DB_PORT)
-                .setHost(Config.DB_URL)
-                .setDatabase(Config.DB_NAME)
-                .setUser(Config.DB_USER)
-                .setPassword(Config.DB_PASSWORD);
+                .setPort(Configuration.DB_PORT)
+                .setHost(Configuration.DB_URL)
+                .setDatabase(Configuration.DB_NAME)
+                .setUser(Configuration.DB_USER)
+                .setPassword(Configuration.DB_PASSWORD);
 
-        var poolOptions = new PoolOptions().setMaxSize(Config.NUMBER_OF_DB_VERTICLE * 5);
+        var poolOptions = new PoolOptions().setMaxSize(Configuration.NUMBER_OF_DB_VERTICLE * 5);
 
         this.sqlClientInstance = PgBuilder
                 .client()

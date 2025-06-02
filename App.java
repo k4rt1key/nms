@@ -8,7 +8,7 @@ import io.vertx.core.impl.logging.LoggerFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.nms.api.HttpServer;
-import org.nms.constants.Config;
+import org.nms.constants.Configuration;
 import org.nms.database.Database;
 import org.nms.discovery.Discovery;
 import org.nms.plugin.Plugin;
@@ -17,7 +17,7 @@ import org.nms.scheduler.Scheduler;
 
 public class App
 {
-    public static final Vertx VERTX = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Config.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
+    public static final Vertx VERTX = Vertx.vertx(new VertxOptions().setMaxWorkerExecuteTime(Configuration.MAX_WORKER_EXECUTE_TIME).setMaxWorkerExecuteTimeUnit(TimeUnit.SECONDS));
 
     public static final Logger LOGGER = LoggerFactory.getLogger(App.class);
 

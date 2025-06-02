@@ -11,9 +11,8 @@ import static org.nms.App.LOGGER;
 
 import org.nms.App;
 import org.nms.cache.MonitorCache;
-import org.nms.constants.Config;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.Configuration;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 import java.util.ArrayList;
@@ -34,9 +33,9 @@ public class Scheduler extends AbstractVerticle
         {
             if (populateCacheResult.succeeded())
             {
-                timerId = App.VERTX.setPeriodic(Config.SCHEDULER_CHECKING_INTERVAL * 1000, id -> poll());
+                timerId = App.VERTX.setPeriodic(Configuration.SCHEDULER_CHECKING_INTERVAL * 1000, id -> poll());
 
-                LOGGER.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Config.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
+                LOGGER.info("✅ Scheduler Verticle deployed with CHECKING_INTERVAL: " + Configuration.SCHEDULER_CHECKING_INTERVAL + " seconds, on thread [ " + Thread.currentThread().getName() + " ] ");
 
                 startPromise.complete();
             }
@@ -59,13 +58,13 @@ public class Scheduler extends AbstractVerticle
     private void poll()
     {
         // TODO: naming
-        var timedOutGroups = MonitorCache.getInstance().collect(Config.SCHEDULER_CHECKING_INTERVAL * 1000);
+        var timedOutGroups = MonitorCache.getInstance().collect(Configuration.SCHEDULER_CHECKING_INTERVAL * 1000);
 
         if (!timedOutGroups.isEmpty())
         {
             var request = buildRequest(timedOutGroups);
 
-            var POLLING_TIMEOUT = Config.BASE_TIME + ( timedOutGroups.size() * Config.POLLING_TIMEOUT_PER_METRIC_GROUP );
+            var POLLING_TIMEOUT = Configuration.BASE_TIME + ( timedOutGroups.size() * Configuration.POLLING_TIMEOUT_PER_METRIC_GROUP );
 
             // Send payload to plugin
             vertx.eventBus().<JsonArray>request(
@@ -188,7 +187,7 @@ public class Scheduler extends AbstractVerticle
 
         if (!insertValuesBatch.isEmpty())
         {
-            var saveRequest = DbUtils.execute(Queries.PollingResult.INSERT, insertValuesBatch);
+            var saveRequest = DbUtils.execute(DatabaseQueries.PollingResult.INSERT, insertValuesBatch);
 
             saveRequest.onComplete(insertInDbResult ->
             {

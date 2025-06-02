@@ -8,8 +8,7 @@ import io.vertx.sqlclient.Tuple;
 import static org.nms.App.LOGGER;
 
 import org.nms.validators.Validators;
-import org.nms.constants.Fields;
-import org.nms.constants.Queries;
+import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
 
 import java.util.ArrayList;
@@ -77,7 +76,7 @@ public class Discovery implements BaseHandler
     @Override
     public void list(RoutingContext ctx)
     {
-        DbUtils.execute(Queries.Discovery.GET_ALL).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_ALL).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -106,7 +105,7 @@ public class Discovery implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -134,7 +133,7 @@ public class Discovery implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -158,7 +157,7 @@ public class Discovery implements BaseHandler
 
     public void getDiscoveryResults(RoutingContext ctx)
     {
-        DbUtils.execute(Queries.Discovery.GET_ALL_WITH_RESULTS).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_ALL_WITH_RESULTS).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -195,7 +194,7 @@ public class Discovery implements BaseHandler
 
         var port = ctx.body().asJsonObject().getInteger(Fields.Discovery.PORT);
 
-        DbUtils.execute(Queries.Discovery.INSERT, new JsonArray().add(name).add(ip).add(ipType).add(port)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.INSERT, new JsonArray().add(name).add(ip).add(ipType).add(port)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -219,7 +218,7 @@ public class Discovery implements BaseHandler
                     credentialsToAdd.add(Tuple.of(discoveryId, credentialId));
                 }
 
-                var credentialRequest = DbUtils.execute(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
+                var credentialRequest = DbUtils.execute(DatabaseQueries.Discovery.INSERT_CREDENTIAL, credentialsToAdd);
 
                 credentialRequest.onComplete(credentialInsertion ->
                 {
@@ -233,7 +232,7 @@ public class Discovery implements BaseHandler
                             return;
                         }
 
-                        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(discoveryResult ->
+                        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(discoveryResult ->
                         {
                             if (discoveryResult.succeeded())
                             {
@@ -249,7 +248,7 @@ public class Discovery implements BaseHandler
                     }
                     else
                     {
-                        DbUtils.execute(Queries.Discovery.DELETE, new JsonArray().add(discoveryId)).onComplete(rollbackResult ->
+                        DbUtils.execute(DatabaseQueries.Discovery.DELETE, new JsonArray().add(discoveryId)).onComplete(rollbackResult ->
                         {
                             if (rollbackResult.failed())
                             {
@@ -283,7 +282,7 @@ public class Discovery implements BaseHandler
 
             if(id == -1) { return; }
 
-            DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+            DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
             {
                 if (asyncResult.succeeded())
                 {
@@ -322,7 +321,7 @@ public class Discovery implements BaseHandler
 
         if(validateUpdateDiscovery(ctx)) { return; }
 
-        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -350,7 +349,7 @@ public class Discovery implements BaseHandler
 
                 var port = ctx.body().asJsonObject().getInteger(Fields.Discovery.PORT);
 
-                DbUtils.execute(Queries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port)).onComplete(updateResult ->
+                DbUtils.execute(DatabaseQueries.Discovery.UPDATE, new JsonArray().add(id).add(name).add(ip).add(ipType).add(port)).onComplete(updateResult ->
                 {
                     if (updateResult.succeeded())
                     {
@@ -363,7 +362,7 @@ public class Discovery implements BaseHandler
                             return;
                         }
 
-                        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
+                        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
                         {
                             if (discoveryResult.succeeded())
                             {
@@ -396,7 +395,7 @@ public class Discovery implements BaseHandler
 
         if( validateUpdateDiscoveryCredential(ctx)) { return; }
 
-        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
         {
             if (discoveryResult.succeeded())
             {
@@ -424,7 +423,7 @@ public class Discovery implements BaseHandler
                         credentialsToAdd.add(Tuple.of(id, credentialId));
                     }
 
-                    DbUtils.execute(Queries.Discovery.INSERT_CREDENTIAL, credentialsToAdd).onComplete(discoveryInsertion ->
+                    DbUtils.execute(DatabaseQueries.Discovery.INSERT_CREDENTIAL, credentialsToAdd).onComplete(discoveryInsertion ->
                     {
                         if (discoveryInsertion.succeeded())
                         {
@@ -455,7 +454,7 @@ public class Discovery implements BaseHandler
 
         if(id == -1) { return; }
 
-        DbUtils.execute(Queries.Discovery.DELETE, new JsonArray().add(id)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.DELETE, new JsonArray().add(id)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
@@ -491,7 +490,7 @@ public class Discovery implements BaseHandler
                 credentialsToRemove.add(Tuple.of(discoveryId, credentialId));
             }
 
-            DbUtils.execute(Queries.Discovery.DELETE_CREDENTIAL, credentialsToRemove).onComplete(asyncResult ->
+            DbUtils.execute(DatabaseQueries.Discovery.DELETE_CREDENTIAL, credentialsToRemove).onComplete(asyncResult ->
             {
                 if (asyncResult.succeeded())
                 {
@@ -511,7 +510,7 @@ public class Discovery implements BaseHandler
 
     private void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId)
     {
-        DbUtils.execute(Queries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
+        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
         {
             if (asyncResult.succeeded())
             {
