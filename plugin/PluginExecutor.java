@@ -23,7 +23,6 @@ public class PluginExecutor extends AbstractVerticle
         LOGGER.info("Plugin Verticle Deployed");
     }
 
-
     @Override
     public void stop()
     {

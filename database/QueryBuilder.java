@@ -69,7 +69,6 @@ public class QueryBuilder
 
         String sql = String.format("SELECT * FROM %s WHERE %s;", table, conditionSql);
 
-        LOGGER.debug(sql + values.getValue(0));
         return new SqlQuery(sql, values);
     }
 
@@ -142,7 +141,6 @@ public class QueryBuilder
 
         return new SqlQuery(sql, batchParameters);
     }
-
 
     public static SqlQuery buildUpdate(String table, JsonObject data, JsonArray conditions)
     {

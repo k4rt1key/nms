@@ -74,7 +74,7 @@ public class Discovery implements AbstractHandler
     @Override
     public void insert(RoutingContext ctx, String tableName)
     {
-        if (isInvalidDiscoveryInsertRequest(ctx)) return;
+        if (validateInsert(ctx)) return;
 
         var requestBody = ctx.body().asJsonObject();
 
@@ -141,7 +141,7 @@ public class Discovery implements AbstractHandler
 
     public void updateDiscovery(RoutingContext ctx, String tableName)
     {
-        if (isInvalidDiscoveryUpdateRequest(ctx)) return;
+        if (validateUpdate(ctx)) return;
 
         this.update(ctx, tableName);
     }
@@ -158,11 +158,11 @@ public class Discovery implements AbstractHandler
     }
 
     /**
-     * Helper method to validate discovery creation request
+     * Helper method to validate insert discovery request
      * @param ctx Routing context
      * @return true if invalid
      */
-    private boolean isInvalidDiscoveryInsertRequest(RoutingContext ctx)
+    private boolean validateInsert(RoutingContext ctx)
     {
         if (Validators.validateBody(ctx)) return true;
 
@@ -230,11 +230,11 @@ public class Discovery implements AbstractHandler
     }
 
     /**
-     * Helper method to validate discovery updation request
+     * Helper method to validate update discovery request
      * @param ctx Routing context
      * @return true if invalid
      */
-    private boolean isInvalidDiscoveryUpdateRequest(RoutingContext ctx)
+    private boolean validateUpdate(RoutingContext ctx)
     {
         if(Validators.validateBody(ctx)) { return true; }
 
