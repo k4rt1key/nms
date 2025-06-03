@@ -8,19 +8,17 @@ import org.slf4j.LoggerFactory;
 
 public class DbUtils
 {
-    private static final Logger log = LoggerFactory.getLogger(DbUtils.class);
-
     public static JsonObject buildRequest(String query, JsonArray data, String mode)
     {
         var request = new JsonObject()
                 .put(DatabaseConstant.QUERY, query)
                 .put(DatabaseConstant.MODE, mode);
 
-        if(mode.equals(DatabaseConstant.MODE_SINGLE))
+        if(mode.equals(DatabaseConstant.SQL_QUERY_SINGLE_PARAM))
         {
             request.put(DatabaseConstant.DATA, data);
         }
-        else if(mode.equals(DatabaseConstant.MODE_BATCH))
+        else if(mode.equals(DatabaseConstant.SQL_QUERY_BATCH))
         {
             request.put(DatabaseConstant.BATCH_DATA, data);
         }

@@ -6,11 +6,11 @@ public class DatabaseConstant
 
     public static final String MODE = "query.mode";
 
-    public static final String MODE_WITHOUT_DATA = "mode.without.data";
+    public static final String SQL_QUERY_WITHOUT_PARAMS = "query.without.params";
 
-    public static final String MODE_SINGLE = "mode.single";
+    public static final String SQL_QUERY_SINGLE_PARAM = "query.single.param";
 
-    public static final String MODE_BATCH = "mode.batch";
+    public static final String SQL_QUERY_BATCH = "query.batch";
 
     public static final String DATA = "data";
 

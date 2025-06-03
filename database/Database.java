@@ -14,7 +14,6 @@ import static org.nms.App.LOGGER;
 
 import org.nms.constants.DatabaseConstant;
 import org.nms.constants.EventbusAddress;
-import org.nms.constants.Messages;
 
 import java.util.ArrayList;
 
@@ -43,7 +42,7 @@ public class Database extends AbstractVerticle
         }
         catch (Exception exception)
         {
-            startPromise.fail(String.format(Messages.VERTICLE_DEPLOY_FAILED, "Database"));
+            startPromise.fail("❌ Failed to deploy Database Verticle");
         }
     }
 
@@ -55,13 +54,13 @@ public class Database extends AbstractVerticle
                 {
                     if (result.succeeded())
                     {
-                        LOGGER.info(String.format(Messages.VERTICLE_UNDEPLOYED, "Database"));
+                        LOGGER.info("\uD83D\uDED1 Undeploy Database Verticle");
 
                         stopPromise.complete();
                     }
                     else
                     {
-                        stopPromise.fail(String.format(Messages.FAILURE_UNDEPLOYING_VERTICLE, result.cause().getMessage()));
+                        stopPromise.fail("❌ Failed to undeploy Database Verticle");
                     }
                 });
     }
@@ -76,11 +75,11 @@ public class Database extends AbstractVerticle
 
         switch (mode)
         {
-            case DatabaseConstant.MODE_SINGLE -> executeSingle(query, request.getJsonArray(DatabaseConstant.DATA), message);
+            case DatabaseConstant.SQL_QUERY_SINGLE_PARAM -> executeSingle(query, request.getJsonArray(DatabaseConstant.DATA), message);
 
-            case DatabaseConstant.MODE_BATCH -> executeBatch(query, request.getJsonArray(DatabaseConstant.BATCH_DATA), message);
+            case DatabaseConstant.SQL_QUERY_BATCH -> executeBatch(query, request.getJsonArray(DatabaseConstant.BATCH_DATA), message);
 
-            default -> executeSimple(query, message);
+            default -> executeWithoutParams(query, message);
         }
     }
 
@@ -111,7 +110,7 @@ public class Database extends AbstractVerticle
                 .onComplete(result -> handleResult(result, message, query, batchData.encode()));
     }
 
-    private void executeSimple(String query, Message<JsonObject> message)
+    private void executeWithoutParams(String query, Message<JsonObject> message)
     {
         dbClient
                 .preparedQuery(query)
@@ -128,7 +127,7 @@ public class Database extends AbstractVerticle
         }
         else if (result.failed())
         {
-            message.fail(500, String.format(Messages.FAILURE_EXECUTING_QUERY, query, input, result.cause().getMessage()));
+            message.fail(500, String.format("Failed to execute => %s \nwith inputs => %s\nerror => %s", query, input, result.cause().getMessage()));
         }
     }
 

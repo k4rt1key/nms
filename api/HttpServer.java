@@ -44,7 +44,7 @@ public class HttpServer extends AbstractVerticle
         });
 
         // ===== Configure User Routes =====
-        User.getInstance().init(router);
+        UserProfile.getInstance().init(router);
 
         router.route()
                 .handler(jwtAuthHandler)
@@ -52,7 +52,7 @@ public class HttpServer extends AbstractVerticle
 
 
         // ===== Configure Credential Routes =====
-        Credential.getInstance().init(router);
+        CredentialProfile.getInstance().init(router);
 
         // ===== Configure Discovery Routes =====
         Discovery.getInstance().init(router);
@@ -61,7 +61,7 @@ public class HttpServer extends AbstractVerticle
         Provision.getInstance().init(router);
 
         // ===== Configure Result Routes =====
-        Result.getInstance().init(router);
+        PollingResult.getInstance().init(router);
 
         // ===== Configure Router To Server =====
         server.requestHandler(router);

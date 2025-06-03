@@ -7,19 +7,22 @@ import org.nms.constants.Configuration;
 
 public class ApiUtils
 {
-    public static void sendSuccess(RoutingContext ctx, int statusCode, String message, JsonArray data)
+    public static void sendSuccess(RoutingContext ctx, int statusCode, JsonArray data)
     {
-        var response = ctx.response()
+        ctx.response()
                 .setStatusCode(statusCode)
-                .putHeader("Content-Type", "application/json");
+                .putHeader("Content-Type", "application/json")
+                .end(data.encode());
 
-        var json = new JsonObject()
-                .put("success", true)
-                .put("statusCode", statusCode)
-                .put("message", message)
-                .put("data", data);
+    }
 
-        response.end(json.toBuffer());
+    public static void sendSuccess(RoutingContext ctx, int statusCode, JsonObject data)
+    {
+        ctx.response()
+                .setStatusCode(statusCode)
+                .putHeader("Content-Type", "application/json")
+                .end(data.encode());
+
     }
 
     public static void sendFailure(RoutingContext ctx, int statusCode, String message)
@@ -29,8 +32,6 @@ public class ApiUtils
                 .putHeader("Content-Type", "application/json");
 
         var json = new JsonObject()
-                .put("success", false)
-                .put("statusCode", statusCode)
                 .put("message", message);
 
         response.end(json.toBuffer());
@@ -43,8 +44,6 @@ public class ApiUtils
                 .putHeader("Content-Type", "application/json");
 
         var json = new JsonObject()
-                .put("success", false)
-                .put("statusCode", statusCode)
                 .put("message", message)
                 .put("error", Configuration.PRODUCTION ? message : error);
 

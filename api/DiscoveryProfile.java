@@ -22,17 +22,17 @@ import static org.nms.constants.Fields.Discovery.ADD_CREDENTIALS;
 import static org.nms.constants.Fields.Discovery.REMOVE_CREDENTIALS;
 import static org.nms.constants.Fields.PluginPollingRequest.CREDENTIALS;
 
-public class Discovery implements BaseHandler
+public class DiscoveryProfile implements BaseHandler
 {
-    private static Discovery instance;
+    private static DiscoveryProfile instance;
 
-    private Discovery(){}
+    private DiscoveryProfile(){}
 
-    public static Discovery getInstance()
+    public static DiscoveryProfile getInstance()
     {
         if(instance == null)
         {
-            instance = new Discovery();
+            instance = new DiscoveryProfile();
         }
 
         return instance;
@@ -43,11 +43,7 @@ public class Discovery implements BaseHandler
     {
         var discoveryRouter = Router.router(VERTX);
 
-        discoveryRouter.get("/results/:id")
-                .handler(this::getDiscoveryResultsById);
-
-        discoveryRouter.get("/results")
-                .handler(this::getDiscoveryResults);
+        var DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
 
         discoveryRouter.get("/")
                 .handler(this::list);
@@ -64,11 +60,13 @@ public class Discovery implements BaseHandler
         discoveryRouter.patch("/:id")
                 .handler(this::update);
 
-        discoveryRouter.patch("/credential/:id")
-                .handler(this::updateDiscoveryCredentials);
-
         discoveryRouter.delete("/:id")
                 .handler(this::delete);
+
+
+
+        discoveryRouter.get("/results/:id")
+                .handler(this::getDiscoveryResultsById);
 
         router.route(DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
     }
