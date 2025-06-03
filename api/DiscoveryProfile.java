@@ -4,9 +4,14 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.sqlclient.Query;
 import io.vertx.sqlclient.Tuple;
 import static org.nms.App.LOGGER;
 
+import org.nms.App;
+import org.nms.constants.DatabaseConstant;
+import org.nms.constants.EventbusAddress;
+import org.nms.utils.ApiUtils;
 import org.nms.validators.Validators;
 import org.nms.constants.DatabaseQueries;
 import org.nms.utils.DbUtils;
@@ -22,7 +27,7 @@ import static org.nms.constants.Fields.Discovery.ADD_CREDENTIALS;
 import static org.nms.constants.Fields.Discovery.REMOVE_CREDENTIALS;
 import static org.nms.constants.Fields.PluginPollingRequest.CREDENTIALS;
 
-public class DiscoveryProfile implements BaseHandler
+public class DiscoveryProfile implements AbstractHandler
 {
     private static DiscoveryProfile instance;
 
@@ -46,10 +51,10 @@ public class DiscoveryProfile implements BaseHandler
         var DISCOVERY_ENDPOINT = "/api/v1/discovery/*";
 
         discoveryRouter.get("/")
-                .handler(this::list);
+                .handler((ctx) -> this.list(ctx, DatabaseQueries.DiscoveryProfile.LIST));
 
         discoveryRouter.get("/:id")
-                .handler(this::get);
+                .handler((ctx) -> this.get(ctx, DatabaseQueries.DiscoveryProfile.GET));
 
         discoveryRouter.post("/")
                 .handler(this::insert);
@@ -61,121 +66,20 @@ public class DiscoveryProfile implements BaseHandler
                 .handler(this::update);
 
         discoveryRouter.delete("/:id")
-                .handler(this::delete);
+                .handler((ctx) -> this.delete(ctx, DatabaseQueries.DiscoveryProfile.DELETE));
 
+        discoveryRouter.post("/credential/")
+                .handler((ctx) -> this.addCredential(ctx, DatabaseQueries.DiscoveryCredential.INSERT));
 
+        discoveryRouter.delete("/credential/:discovery_profile/:credential_profile")
+                .handler((ctx) -> this.removeCredential(ctx, DatabaseQueries.DiscoveryCredential.DELETE));
 
         discoveryRouter.get("/results/:id")
-                .handler(this::getDiscoveryResultsById);
+                .handler((ctx) -> this.get(ctx, DatabaseQueries.DiscoveryResult.GET));
 
         router.route(DISCOVERY_ENDPOINT).subRouter(discoveryRouter);
     }
 
-    @Override
-    public void list(RoutingContext ctx)
-    {
-        DbUtils.execute(DatabaseQueries.Discovery.GET_ALL).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var discoveries = asyncResult.result();
-
-                if (discoveries.isEmpty())
-                {
-                    sendFailure(ctx, 404, "No discoveries found");
-
-                    return;
-                }
-
-                sendSuccess(ctx, 200, "Discoveries found", discoveries);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
-    }
-
-    @Override
-    public void get(RoutingContext ctx)
-    {
-        var id = Validators.validateID(ctx);
-
-        if(id == -1) { return; }
-
-        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var discovery = asyncResult.result();
-
-                if (discovery.isEmpty())
-                {
-                    sendFailure(ctx, 404, "Discovery not found");
-
-                    return;
-                }
-
-                sendSuccess(ctx, 200, "Discovery found", discovery);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
-    }
-
-    public void getDiscoveryResultsById(RoutingContext ctx)
-    {
-        var id = Validators.validateID(ctx);
-
-        if(id == -1) { return; }
-
-        DbUtils.execute(DatabaseQueries.Discovery.GET_WITH_RESULTS_BY_ID, new JsonArray().add(id)).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var discovery = asyncResult.result();
-
-                if (discovery.isEmpty())
-                {
-                    sendFailure(ctx, 404, "Discovery not found");
-
-                    return;
-                }
-
-                sendSuccess(ctx, 200, "Discovery found", discovery);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
-    }
-
-    public void getDiscoveryResults(RoutingContext ctx)
-    {
-        DbUtils.execute(DatabaseQueries.Discovery.GET_ALL_WITH_RESULTS).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var discoveries = asyncResult.result();
-
-                if (discoveries.isEmpty())
-                {
-                    sendFailure(ctx, 404, "No discoveries found");
-
-                    return;
-                }
-
-                sendSuccess(ctx, 200, "Discoveries found", discoveries);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
-    }
 
     @Override
     public void insert(RoutingContext ctx)
@@ -387,285 +291,90 @@ public class DiscoveryProfile implements BaseHandler
         });
     }
 
-    public void updateDiscoveryCredentials(RoutingContext ctx)
+    public void removeCredential(RoutingContext ctx, String query)
     {
-        var id = Integer.parseInt(ctx.request().getParam("id"));
+        var discoveryProfile = ctx.body().asJsonObject().getInteger(DatabaseConstant.DiscoveryCredentialSchema.DISCOVERY_PROFILE);
 
-        if( validateUpdateDiscoveryCredential(ctx)) { return; }
+        var credentialProfile = ctx.body().asJsonObject().getInteger(DatabaseConstant.DiscoveryCredentialSchema.CREDENTIAL_PROFILE);
 
-        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(id)).onComplete(discoveryResult ->
+        var queryRequest = DbUtils.buildRequest(
+                query,
+                new JsonArray().add(discoveryProfile).add(credentialProfile),
+                DatabaseConstant.SQL_QUERY_SINGLE_PARAM
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EventbusAddress.EXECUTE_QUERY, queryRequest, dbResponse ->
         {
-            if (discoveryResult.succeeded())
+            if(dbResponse.succeeded())
             {
-                var discovery = discoveryResult.result();
-
-                if (discovery.isEmpty())
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
                 {
-                    sendFailure(ctx, 404, "Discovery not found");
-
-                    return;
-                }
-
-                var addCredentials = ctx.body().asJsonObject().getJsonArray(Fields.Discovery.ADD_CREDENTIALS);
-
-                var removeCredentials = ctx.body().asJsonObject().getJsonArray(Fields.Discovery.REMOVE_CREDENTIALS);
-
-                if (addCredentials != null && !addCredentials.isEmpty())
-                {
-                    var credentialsToAdd = new ArrayList<Tuple>();
-
-                    for (var i = 0; i < addCredentials.size(); i++)
-                    {
-                        var credentialId = Integer.parseInt(addCredentials.getString(i));
-
-                        credentialsToAdd.add(Tuple.of(id, credentialId));
-                    }
-
-                    DbUtils.execute(DatabaseQueries.Discovery.INSERT_CREDENTIAL, credentialsToAdd).onComplete(discoveryInsertion ->
-                    {
-                        if (discoveryInsertion.succeeded())
-                        {
-                            processRemoveCredentials(ctx, id, removeCredentials);
-                        }
-                        else
-                        {
-                            sendFailure(ctx, 500, "Something Went Wrong", discoveryInsertion.cause().getMessage());
-                        }
-                    });
+                    ApiUtils.sendFailure(ctx, 404, "No Data Found");
                 }
                 else
                 {
-                    processRemoveCredentials(ctx, id, removeCredentials);
+                    ApiUtils.sendSuccess(ctx, 200, dbResponse.result().body());
+
+                    deleteCache(dbResponse.result().body());
                 }
             }
             else
             {
-                sendFailure(ctx, 500, "Something Went Wrong", discoveryResult.cause().getMessage());
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", dbResponse.cause().getMessage());
+            }
+        });
+    }
+
+    public void addCredential(RoutingContext ctx, String query)
+    {
+        var discoveryProfile = ctx.body().asJsonObject().getInteger(DatabaseConstant.DiscoveryCredentialSchema.DISCOVERY_PROFILE);
+
+        var credentialProfile = ctx.body().asJsonObject().getInteger(DatabaseConstant.DiscoveryCredentialSchema.CREDENTIAL_PROFILE);
+
+        var queryRequest = DbUtils.buildRequest(
+                query,
+                new JsonArray().add(discoveryProfile).add(credentialProfile),
+                DatabaseConstant.SQL_QUERY_SINGLE_PARAM
+        );
+
+        App.VERTX.eventBus().<JsonArray>request(EventbusAddress.EXECUTE_QUERY, queryRequest, dbResponse ->
+        {
+            if(dbResponse.succeeded())
+            {
+                if(dbResponse.result().body() == null || dbResponse.result().body().isEmpty())
+                {
+                    ApiUtils.sendFailure(ctx, 404, "No Data Found");
+                }
+                else
+                {
+                    ApiUtils.sendSuccess(ctx, 200, dbResponse.result().body());
+
+                    deleteCache(dbResponse.result().body());
+                }
+            }
+            else
+            {
+                ApiUtils.sendFailure(ctx, 500, "Something Went Wrong", dbResponse.cause().getMessage());
             }
         });
     }
 
     @Override
-    public void delete(RoutingContext ctx)
+    public void updateCache(JsonArray data)
     {
-        var id = Validators.validateID(ctx);
-
-        if(id == -1) { return; }
-
-        DbUtils.execute(DatabaseQueries.Discovery.DELETE, new JsonArray().add(id)).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var discovery = asyncResult.result();
-
-                if (discovery.isEmpty())
-                {
-                    sendFailure(ctx, 404, "Discovery not found");
-
-                    return;
-                }
-
-                sendSuccess(ctx, 200, "Discovery deleted successfully", discovery);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
+        // NA
     }
 
-    // Helper
-    private void processRemoveCredentials(RoutingContext ctx, int discoveryId, JsonArray removeCredentials)
+    @Override
+    public void insertCache(JsonArray data)
     {
-        if (removeCredentials != null && !removeCredentials.isEmpty())
-        {
-            var credentialsToRemove = new ArrayList<Tuple>();
-
-            for (var i = 0; i < removeCredentials.size(); i++)
-            {
-                var credentialId = Integer.parseInt(removeCredentials.getString(i));
-
-                credentialsToRemove.add(Tuple.of(discoveryId, credentialId));
-            }
-
-            DbUtils.execute(DatabaseQueries.Discovery.DELETE_CREDENTIAL, credentialsToRemove).onComplete(asyncResult ->
-            {
-                if (asyncResult.succeeded())
-                {
-                    returnUpdatedDiscovery(ctx, discoveryId);
-                }
-                else
-                {
-                    sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-                }
-            });
-        }
-        else
-        {
-            returnUpdatedDiscovery(ctx, discoveryId);
-        }
+        // NA
     }
 
-    private void returnUpdatedDiscovery(RoutingContext ctx, int discoveryId)
+    @Override
+    public void deleteCache(JsonArray data)
     {
-        DbUtils.execute(DatabaseQueries.Discovery.GET_BY_ID, new JsonArray().add(discoveryId)).onComplete(asyncResult ->
-        {
-            if (asyncResult.succeeded())
-            {
-                var updatedDiscovery = asyncResult.result();
-
-                sendSuccess(ctx, 200, "Discovery credentials updated successfully", updatedDiscovery);
-            }
-            else
-            {
-                sendFailure(ctx, 500, "Something Went Wrong", asyncResult.cause().getMessage());
-            }
-        });
+        // NA
     }
 
-    private boolean validateCreate(RoutingContext ctx)
-    {
-
-        if(Validators.validateBody(ctx)) { return true; }
-
-        if(Validators.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, true)) { return true; }
-
-        var body = ctx.body().asJsonObject();
-
-        var credentials = body.getJsonArray(CREDENTIALS);
-
-        if (credentials == null || credentials.isEmpty())
-        {
-            sendFailure(ctx, 400, "Missing or empty 'credentials' field");
-
-            return true;
-        }
-
-        for (var credential : credentials)
-        {
-            try
-            {
-                Integer.parseInt(credential.toString());
-            }
-            catch (NumberFormatException exception)
-            {
-                sendFailure(ctx, 400, "Invalid credential ID: " + credential);
-
-                return true;
-            }
-        }
-
-        var port = body.getInteger(Fields.Discovery.PORT);
-
-        if (port < 1 || port > 65535)
-        {
-            sendFailure(ctx, 400, "Port must be between 1 and 65535");
-
-            return true;
-        }
-
-        var ipType = body.getString(Fields.Discovery.IP_TYPE);
-
-        if (!ipType.equals("SINGLE") && !ipType.equals("RANGE") && !ipType.equals("CIDR"))
-        {
-            sendFailure(ctx, 400, "Invalid IP type. Only 'SINGLE', 'RANGE' and 'CIDR' are supported");
-
-            return true;
-        }
-
-        var ip = body.getString(Fields.Discovery.IP);
-
-        if (validateIpWithIpType(ip, ipType))
-        {
-            sendFailure(ctx, 400, "Invalid IP address or mismatch Ip and IpType: " + ip + ", " + ipType);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private boolean validateUpdateDiscovery(RoutingContext ctx)
-    {
-        if(Validators.validateBody(ctx)) { return true; }
-
-        if(Validators.validateInputFields(ctx, new String[]{Fields.Discovery.IP, Fields.Discovery.IP_TYPE, Fields.Discovery.NAME, Fields.Discovery.PORT}, false)) { return true; }
-
-        if(! Validators.validatePort(ctx)) { return true; }
-
-        var ipType = ctx.body().asJsonObject().getString(Fields.Discovery.IP_TYPE);
-
-        if (ipType != null && !ipType.equals("SINGLE") && !ipType.equals("RANGE") && !ipType.equals("CIDR"))
-        {
-            sendFailure(ctx, 400, "Invalid IP type. Only 'SINGLE', 'RANGE' and 'CIDR' are supported");
-        }
-
-        var ip = ctx.body().asJsonObject().getString(Fields.Discovery.IP);
-
-        if (ip != null && ipType != null && validateIpWithIpType(ip, ipType))
-        {
-            sendFailure(ctx, 400, "Invalid IP address or mismatch Ip and IpType: " + ip + ", " + ipType);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private boolean validateUpdateDiscoveryCredential(RoutingContext ctx)
-    {
-        if(Validators.validateBody(ctx)) { return true; }
-
-        var body = ctx.body().asJsonObject();
-
-        var add_credentials = body.getJsonArray(ADD_CREDENTIALS);
-
-        var remove_credentials = body.getJsonArray(REMOVE_CREDENTIALS);
-
-        if (
-                (add_credentials == null || add_credentials.isEmpty()) &&
-                        (remove_credentials == null || remove_credentials.isEmpty())
-        )
-        {
-            sendFailure(ctx, 400, "Missing or empty ' " + ADD_CREDENTIALS  + " ' and ' " + REMOVE_CREDENTIALS + " ' fields");
-
-            return true;
-        }
-
-        if (add_credentials != null && !add_credentials.isEmpty())
-        {
-            for (var credential : add_credentials)
-            {
-                try
-                {
-                    Integer.parseInt(credential.toString());
-                }
-                catch (NumberFormatException exception)
-                {
-                    sendFailure(ctx, 400, "Invalid credential ID in " + ADD_CREDENTIALS + " : " + credential);
-
-                    return true;
-                }
-            }
-        }
-
-        if (remove_credentials != null && !remove_credentials.isEmpty())
-        {
-            for (var credential : remove_credentials)
-            {
-                try
-                {
-                    Integer.parseInt(credential.toString());
-                }
-                catch (NumberFormatException exception)
-                {
-                    sendFailure(ctx, 400, "Invalid credential ID in " + REMOVE_CREDENTIALS + " : " + credential);
-
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
 }
